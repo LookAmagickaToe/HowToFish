@@ -75,6 +75,15 @@ namespace Expanded
             _current = ModAssets.Create(modelName, pos, Quaternion.LookRotation(-forward));
             if (_current == null) { Say("Could not load '" + modelName + "'."); return; }
 
+            // Diagnostics that explain the two classic failures: no texture (missing UVs) and
+            // walking through the model (no colliders).
+            int uvs = 0, colliders = 0;
+            foreach (MeshFilter mf in _current.GetComponentsInChildren<MeshFilter>(true))
+                if (mf.sharedMesh != null) uvs += mf.sharedMesh.uv != null ? mf.sharedMesh.uv.Length : 0;
+            foreach (Collider c in _current.GetComponentsInChildren<Collider>(true)) colliders++;
+            Diag.Info("Preview mesh: " + uvs + " UV(s), " + colliders + " collider(s), layer " +
+                      LayerMask.LayerToName(_current.layer));
+
             Bounds b = ModAssets.Measure(_current);
             string size = b.size.x.ToString("0.00") + " x " + b.size.y.ToString("0.00") + " x " +
                           b.size.z.ToString("0.00") + " m";

@@ -51,8 +51,11 @@ public static class BundleBuilder
                     model.importLights = false;
                     model.materialImportMode = ModelImporterMaterialImportMode.None;
                     model.importBlendShapes = false;
-                    model.isReadable = false;          // smaller bundle; we never edit meshes at runtime
-                    model.meshCompression = ModelImporterMeshCompression.Medium;
+                    // Required: the mod builds MeshColliders at runtime, and Unity refuses to take a
+                    // non-readable mesh for collision.
+                    model.isReadable = true;
+                    // No compression either - it perturbs vertices, and these meshes are tiny anyway.
+                    model.meshCompression = ModelImporterMeshCompression.Off;
                     model.SaveAndReimport();
                     models++;
                 }
