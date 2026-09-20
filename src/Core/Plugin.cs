@@ -73,6 +73,7 @@ namespace Expanded
         {
             Modules.Add(new SeagullSwarm.SwarmModule());
             Modules.Add(new Expanded.Quests.QuestModule());
+            Modules.Add(new Expanded.Pirates.PirateModule());
             Modules.Add(new AssetsModule());
         }
 
