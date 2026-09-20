@@ -59,6 +59,7 @@ namespace Expanded
 
             ModSave.Load();
             ModNet.InstallSerializers();
+            ModAssets.Load();
 
             RegisterModules();
             ConfigureModules();
@@ -72,6 +73,7 @@ namespace Expanded
         {
             Modules.Add(new SeagullSwarm.SwarmModule());
             Modules.Add(new Expanded.Quests.QuestModule());
+            Modules.Add(new AssetsModule());
         }
 
         private void ConfigureModules()

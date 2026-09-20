@@ -23,7 +23,8 @@ $refNames = @(
     "com.rlabrecque.steamworks.net.dll", "Newtonsoft.Json.dll",
     "UnityEngine.dll", "UnityEngine.CoreModule.dll", "UnityEngine.PhysicsModule.dll",
     "UnityEngine.AnimationModule.dll", "UnityEngine.InputLegacyModule.dll",
-    "UnityEngine.IMGUIModule.dll", "UnityEngine.TextRenderingModule.dll"
+    "UnityEngine.IMGUIModule.dll", "UnityEngine.TextRenderingModule.dll",
+    "UnityEngine.AssetBundleModule.dll"
 )
 
 $refs = @()
