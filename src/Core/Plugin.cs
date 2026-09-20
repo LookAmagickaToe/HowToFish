@@ -193,6 +193,11 @@ namespace Expanded
             if (running)
             {
                 Diag.Info("Session started (" + (server ? "host" : "client") + ").");
+
+                // Steam is up by now, so the save file can move to the real per-account path before
+                // any module reads progress from it.
+                ModSave.RebindToCurrentUser();
+
                 if (server) ModNet.HookServer();
                 if (client) ModNet.HookClient();
 

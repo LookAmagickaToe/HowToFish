@@ -65,6 +65,47 @@ namespace Expanded
             return System.IO.Path.Combine(dir, FileName);
         }
 
+        /// <summary>
+        /// Re-resolves the save path and reloads. Steam is not initialised when the plugin starts,
+        /// so the first Load() lands in the shared "local" folder; calling this once a session
+        /// begins moves us onto the real per-account file, migrating anything already in memory.
+        /// </summary>
+        internal static void RebindToCurrentUser()
+        {
+            string previous = _path;
+            string resolved;
+            try { resolved = ResolvePath(); }
+            catch (Exception e) { Diag.Exception("ModSave.RebindToCurrentUser", e); return; }
+
+            if (string.Equals(previous, resolved, StringComparison.OrdinalIgnoreCase)) return;
+
+            bool hadProgress = _data != null &&
+                               (_data.Quests.Count > 0 || _data.Flags.Count > 0 || _data.Unlocks.Count > 0);
+
+            ModSaveData onDisk = ReadFile(resolved) ?? ReadFile(resolved + ".backup");
+            _path = resolved;
+
+            if (onDisk != null)
+            {
+                _data = onDisk;
+                _dirty = false;
+                Diag.Info("ModSave: switched to per-account file " + _path + ".");
+            }
+            else if (hadProgress)
+            {
+                // First run after the fix: carry the shared-file progress over rather than losing it.
+                _dirty = true;
+                SaveIfDirty(true);
+                Diag.Info("ModSave: migrated progress to " + _path + ".");
+            }
+            else
+            {
+                _data = new ModSaveData();
+                _dirty = false;
+                Diag.Info("ModSave: new per-account file at " + _path + ".");
+            }
+        }
+
         internal static void Load()
         {
             try
