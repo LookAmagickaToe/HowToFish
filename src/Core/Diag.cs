@@ -3,16 +3,15 @@ using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 
-namespace SeagullSwarm
+namespace Expanded
 {
     /// <summary>
-    /// Diagnostics. Everything goes to the BepInEx log as usual, and additionally to a dedicated,
-    /// timestamped BepInEx\SeagullSwarm.log that is truncated on every launch, so one file is
-    /// exactly one play session.
+    /// Diagnostics shared by every module.
     ///
-    /// Exceptions are rate-limited per call site: the first occurrence is logged with its full
-    /// stack trace, repeats are counted and summarised every few seconds instead of spamming a
-    /// line per frame.
+    /// Everything goes to the BepInEx log and additionally to a dedicated, timestamped
+    /// BepInEx\Expanded.log that is truncated on every launch, so one file is exactly one play
+    /// session. Exceptions are rate-limited per call site: the first is logged with its full stack,
+    /// repeats are counted and summarised instead of spamming a line per frame.
     /// </summary>
     internal static class Diag
     {
@@ -28,6 +27,12 @@ namespace SeagullSwarm
 
         internal static string FilePath { get; private set; }
 
+        /// <summary>Set from config at startup; gates Debug().</summary>
+        internal static bool VerboseEnabled { get; set; }
+
+        /// <summary>Seconds between module status snapshots; 0 disables them.</summary>
+        internal static float StatusInterval { get; set; } = 5f;
+
         internal static void Init(string path)
         {
             FilePath = path;
@@ -37,7 +42,7 @@ namespace SeagullSwarm
             }
             catch (Exception e)
             {
-                SeagullSwarmPlugin.Log.LogWarning("Could not open " + path + ": " + e.Message);
+                ExpandedPlugin.Log.LogWarning("Could not open " + path + ": " + e.Message);
             }
 
             Application.logMessageReceived += OnUnityLog;
@@ -45,27 +50,27 @@ namespace SeagullSwarm
 
         internal static void Info(string msg)
         {
-            SeagullSwarmPlugin.Log.LogInfo(msg);
+            ExpandedPlugin.Log.LogInfo(msg);
             Write("INFO ", msg);
         }
 
         internal static void Warn(string msg)
         {
-            SeagullSwarmPlugin.Log.LogWarning(msg);
+            ExpandedPlugin.Log.LogWarning(msg);
             Write("WARN ", msg);
         }
 
         internal static void Error(string msg)
         {
-            SeagullSwarmPlugin.Log.LogError(msg);
+            ExpandedPlugin.Log.LogError(msg);
             Write("ERROR", msg);
         }
 
-        /// <summary>Per-bird detail. Only written when Debug/Verbose is on.</summary>
+        /// <summary>Fine-grained detail. Only written when Debug/Verbose is on.</summary>
         internal static void Debug(string msg)
         {
-            if (SeagullSwarmPlugin.Cfg == null || !SeagullSwarmPlugin.Cfg.Verbose.Value) return;
-            SeagullSwarmPlugin.Log.LogDebug(msg);
+            if (!VerboseEnabled) return;
+            ExpandedPlugin.Log.LogDebug(msg);
             Write("DEBUG", msg);
         }
 
@@ -96,7 +101,7 @@ namespace SeagullSwarm
 
         /// <summary>
         /// Captures errors the game itself reports, e.g. an exception deep inside vanilla code that
-        /// our spawning triggered. File-only: forwarding into BepInEx could loop straight back here,
+        /// mod behaviour triggered. File-only: forwarding into BepInEx could loop straight back here,
         /// because BepInEx mirrors its own log into Unity's.
         /// </summary>
         private static void OnUnityLog(string condition, string stack, LogType type)

@@ -1,64 +1,9 @@
-using System;
-using System.IO;
-using System.Reflection;
-using BepInEx;
 using BepInEx.Configuration;
-using BepInEx.Logging;
-using HarmonyLib;
+using Expanded;
 using UnityEngine;
 
 namespace SeagullSwarm
 {
-    [BepInPlugin(Guid, "Seagull Swarm", "1.0.0")]
-    public class SeagullSwarmPlugin : BaseUnityPlugin
-    {
-        public const string Guid = "dazed.howtofish.seagullswarm";
-
-        internal static ManualLogSource Log;
-        internal static SwarmConfig Cfg;
-
-        private void Awake()
-        {
-            Log = Logger;
-            Cfg = new SwarmConfig(Config);
-            Diag.Init(Path.Combine(Paths.BepInExRootPath, "SeagullSwarm.log"));
-
-            Diag.Info("Seagull Swarm 1.0.0 on Unity " + Application.unityVersion + ", log file " + Diag.FilePath);
-            Diag.Info("Config: provoke " + Cfg.KillsToProvoke.Value + " kills/" + Cfg.ProvokeWindowSeconds.Value +
-                      "s, waves " + Cfg.WaveCount.Value + " from " + Cfg.FirstWaveSize.Value + " x" + Cfg.WaveGrowth.Value +
-                      ", dmg " + Cfg.ContactDamage.Value + ", leader " + Cfg.SpawnLeader.Value +
-                      ", hotkeys " + (Cfg.HotkeysEnabled.Value
-                          ? Cfg.StartKey.Value + "/" + Cfg.SkipWaveKey.Value + "/" + Cfg.StopKey.Value
-                          : "off") +
-                      ", autostart " + Cfg.AutoStartAfterSeconds.Value + "s, verbose " + Cfg.Verbose.Value);
-
-            Harmony harmony = new Harmony(Guid);
-            try
-            {
-                harmony.PatchAll(typeof(Patches));
-            }
-            catch (Exception e)
-            {
-                Diag.Exception("Harmony.PatchAll", e);
-            }
-
-            // Confirm every hook actually landed. A missing one is the most likely way a game update
-            // breaks the mod, and it would otherwise fail silently.
-            int count = 0;
-            foreach (MethodBase m in harmony.GetPatchedMethods())
-            {
-                Diag.Info("  hooked " + m.DeclaringType.Name + "." + m.Name);
-                count++;
-            }
-            if (count == ExpectedPatchCount)
-                Diag.Info("All " + count + " hooks attached. Ready: host an island to arm the director.");
-            else
-                Diag.Error("Only " + count + " of " + ExpectedPatchCount + " hooks attached - mod will not work correctly.");
-        }
-
-        private const int ExpectedPatchCount = 5;
-    }
-
     /// <summary>
     /// Every tunable the encounter uses. Host-authoritative: only the host's values matter,
     /// because only the host runs the director and the AI.

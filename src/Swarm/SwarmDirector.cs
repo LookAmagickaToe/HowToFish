@@ -4,6 +4,8 @@ using FishNet;
 using UnityEngine;
 using Random = UnityEngine.Random;
 
+using Expanded;
+
 namespace SeagullSwarm
 {
     /// <summary>
@@ -108,19 +110,19 @@ namespace SeagullSwarm
             _provokeKills.Add(Time.time);
 
             Say("Seagull killed (" + _provokeKills.Count + "/" +
-                SeagullSwarmPlugin.Cfg.KillsToProvoke.Value + ")");
+                SwarmModule.Cfg.KillsToProvoke.Value + ")");
         }
 
         private void PruneProvokeWindow()
         {
-            float cutoff = Time.time - SeagullSwarmPlugin.Cfg.ProvokeWindowSeconds.Value;
+            float cutoff = Time.time - SwarmModule.Cfg.ProvokeWindowSeconds.Value;
             int before = _provokeKills.Count;
             for (int i = _provokeKills.Count - 1; i >= 0; i--)
                 if (_provokeKills[i] < cutoff) _provokeKills.RemoveAt(i);
 
             if (_provokeKills.Count < before)
                 Diag.Info("Old seagull kill(s) expired from the window; now " + _provokeKills.Count + "/" +
-                          SeagullSwarmPlugin.Cfg.KillsToProvoke.Value + ".");
+                          SwarmModule.Cfg.KillsToProvoke.Value + ".");
         }
 
         /// <summary>Called by a bird at the end of each dive cycle.</summary>
@@ -163,7 +165,7 @@ namespace SeagullSwarm
             switch (_phase)
             {
                 case Phase.Idle:
-                    if (_provokeKills.Count >= SeagullSwarmPlugin.Cfg.KillsToProvoke.Value)
+                    if (_provokeKills.Count >= SwarmModule.Cfg.KillsToProvoke.Value)
                     {
                         Diag.Info("Kill threshold reached - provoking the flock.");
                         StartEncounter();
@@ -188,7 +190,7 @@ namespace SeagullSwarm
                     break;
             }
 
-            float interval = SeagullSwarmPlugin.Cfg.StatusIntervalSeconds.Value;
+            float interval = SwarmModule.Cfg.StatusIntervalSeconds.Value;
             if (InEncounter && interval > 0f && Time.time >= _nextStatusAt)
             {
                 _nextStatusAt = Time.time + interval;
@@ -305,7 +307,7 @@ namespace SeagullSwarm
 
         private void HandleTestControls()
         {
-            SwarmConfig cfg = SeagullSwarmPlugin.Cfg;
+            SwarmConfig cfg = SwarmModule.Cfg;
 
             float auto = cfg.AutoStartAfterSeconds.Value;
             if (auto > 0f && !_autoStartFired && _phase == Phase.Idle && Time.time - _attachedAt >= auto)
@@ -324,6 +326,37 @@ namespace SeagullSwarm
             if (Input.GetKeyDown(cfg.StartKey.Value)) { Diag.Info("Hotkey " + cfg.StartKey.Value + " (start)"); ForceStart(); }
             else if (Input.GetKeyDown(cfg.SkipWaveKey.Value)) { Diag.Info("Hotkey " + cfg.SkipWaveKey.Value + " (skip wave)"); SkipWave(); }
             else if (Input.GetKeyDown(cfg.StopKey.Value)) { Diag.Info("Hotkey " + cfg.StopKey.Value + " (stop)"); ForceStop(); }
+        }
+
+        /// <summary>Module debug key: start an encounter, or stop the one that is running.</summary>
+        internal void DebugToggleEncounter()
+        {
+            if (!InstanceFinder.IsServerStarted)
+            {
+                Say("Only the host can start the swarm.");
+                return;
+            }
+            if (InEncounter) ForceStop(); else ForceStart();
+        }
+
+        /// <summary>One-line summary for the debug overlay.</summary>
+        internal string DebugStatus()
+        {
+            switch (_phase)
+            {
+                case Phase.Idle:
+                    return "idle (" + _provokeKills.Count + "/" + SwarmModule.Cfg.KillsToProvoke.Value + " kills)";
+                case Phase.Summoning:
+                    return "summoning the Albatross";
+                case Phase.Running:
+                    return "wave " + (_waveIndex + 1) + "/" + (_waveSizes != null ? _waveSizes.Length : 0) +
+                           ", " + _birds.Count + " birds, albatross " +
+                           (_leaderInPlay ? _leaderLastHp + "/" + _leaderMaxHp : "n/a");
+                case Phase.Cooldown:
+                    return "cooldown " + Mathf.Max(0f, _cooldownUntil - Time.time).ToString("0") + "s";
+                default:
+                    return _phase.ToString();
+            }
         }
 
         private void ForceStart()
@@ -375,7 +408,7 @@ namespace SeagullSwarm
         private static void Say(string message)
         {
             Diag.Info("[chat] " + message);
-            if (!SeagullSwarmPlugin.Cfg.ChatFeedback.Value) return;
+            if (!SwarmModule.Cfg.ChatFeedback.Value) return;
 
             try { ChatManager.ChatMessage("<color=#E0B040>[Swarm]</color> " + message); }
             catch (Exception e) { Diag.Exception("ChatManager.ChatMessage", e); }
@@ -385,7 +418,7 @@ namespace SeagullSwarm
 
         private void StartEncounter()
         {
-            SwarmConfig cfg = SeagullSwarmPlugin.Cfg;
+            SwarmConfig cfg = SwarmModule.Cfg;
 
             _encounterStartedAt = Time.time;
             _totalDives = _totalHits = _totalCrashes = 0;
@@ -479,7 +512,7 @@ namespace SeagullSwarm
 
         private void ConfigureLeader()
         {
-            SwarmConfig cfg = SeagullSwarmPlugin.Cfg;
+            SwarmConfig cfg = SwarmModule.Cfg;
 
             if (_bossManager == null) _bossManager = FindAnyObjectByType<BossManager>();
             if (_bossManager == null || _leader == null)
@@ -514,7 +547,7 @@ namespace SeagullSwarm
 
         private void TickRunning()
         {
-            SwarmConfig cfg = SeagullSwarmPlugin.Cfg;
+            SwarmConfig cfg = SwarmModule.Cfg;
 
             if (_leaderInPlay && HandleLeaderState(cfg)) return;
 
@@ -552,6 +585,7 @@ namespace SeagullSwarm
                 if (cfg.LeaderDeathEndsSwarm.Value || _wavesDone)
                 {
                     Say("The Albatross is dead - the flock breaks and flees!");
+                    RaiseStoryVictory();
                     EndEncounter("Victory: Albatross slain");
                     return true;
                 }
@@ -619,7 +653,18 @@ namespace SeagullSwarm
             }
 
             Say("Swarm defeated!");
+            RaiseStoryVictory();
             EndEncounter("Victory: all waves cleared");
+        }
+
+        /// <summary>
+        /// Tells the story module the swarm was beaten. Decoupled on purpose: the swarm works
+        /// perfectly well with the quest module disabled or absent.
+        /// </summary>
+        private static void RaiseStoryVictory()
+        {
+            try { Expanded.Quests.QuestModule.Instance?.SetFlag("swarm.defeated"); }
+            catch (Exception e) { Diag.Exception("RaiseStoryVictory", e); }
         }
 
         /// <summary>Every ending goes through here: surviving gulls flee, then the cooldown starts.</summary>
@@ -639,14 +684,14 @@ namespace SeagullSwarm
             _provokeKills.Clear();
             _wavesDone = false;
             _arrivalScreamPending = false;
-            _cooldownUntil = Time.time + SeagullSwarmPlugin.Cfg.RetriggerCooldownSeconds.Value;
+            _cooldownUntil = Time.time + SwarmModule.Cfg.RetriggerCooldownSeconds.Value;
             _phase = Phase.Cooldown;
-            Diag.Info("Cooldown " + SeagullSwarmPlugin.Cfg.RetriggerCooldownSeconds.Value + "s.");
+            Diag.Info("Cooldown " + SwarmModule.Cfg.RetriggerCooldownSeconds.Value + "s.");
         }
 
         private void FleeAll()
         {
-            float until = Time.time + SeagullSwarmPlugin.Cfg.FleeSeconds.Value;
+            float until = Time.time + SwarmModule.Cfg.FleeSeconds.Value;
             int n = 0;
             for (int i = 0; i < _birds.Count; i++)
             {
@@ -704,7 +749,7 @@ namespace SeagullSwarm
 
         private void BuildWavePlan()
         {
-            SwarmConfig cfg = SeagullSwarmPlugin.Cfg;
+            SwarmConfig cfg = SwarmModule.Cfg;
 
             int count = Mathf.Max(1, cfg.WaveCount.Value);
             _waveSizes = new int[count];
@@ -725,7 +770,7 @@ namespace SeagullSwarm
         /// </summary>
         private void StartWave(int index)
         {
-            SwarmConfig cfg = SeagullSwarmPlugin.Cfg;
+            SwarmConfig cfg = SwarmModule.Cfg;
 
             _waveStartedAt = Time.time;
             _waveDives = _waveHits = _waveCrashes = _waveKilled = _waveVanished = 0;
@@ -863,7 +908,7 @@ namespace SeagullSwarm
 
         private void LaunchDiveGroup()
         {
-            SwarmConfig cfg = SeagullSwarmPlugin.Cfg;
+            SwarmConfig cfg = SwarmModule.Cfg;
 
             float t = _waveSizes.Length <= 1 ? 1f : (float)_waveIndex / (_waveSizes.Length - 1);
             float interval = Mathf.Lerp(cfg.GroupIntervalStart.Value, cfg.GroupIntervalEnd.Value, t);

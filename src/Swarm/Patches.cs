@@ -3,6 +3,8 @@ using FishNet;
 using HarmonyLib;
 using UnityEngine;
 
+using Expanded;
+
 namespace SeagullSwarm
 {
     /// <summary>

@@ -20,9 +20,10 @@ foreach ($p in @($managed, $Csc, $BepInEx)) {
 $refNames = @(
     "mscorlib.dll", "System.dll", "System.Core.dll", "netstandard.dll",
     "Assembly-CSharp.dll", "FishNet.Runtime.dll", "GameKit.Dependencies.dll",
-    "com.rlabrecque.steamworks.net.dll",
+    "com.rlabrecque.steamworks.net.dll", "Newtonsoft.Json.dll",
     "UnityEngine.dll", "UnityEngine.CoreModule.dll", "UnityEngine.PhysicsModule.dll",
-    "UnityEngine.AnimationModule.dll", "UnityEngine.InputLegacyModule.dll"
+    "UnityEngine.AnimationModule.dll", "UnityEngine.InputLegacyModule.dll",
+    "UnityEngine.IMGUIModule.dll", "UnityEngine.TextRenderingModule.dll"
 )
 
 $refs = @()
@@ -37,8 +38,8 @@ foreach ($n in @("BepInEx.dll", "0Harmony.dll")) {
 }
 
 New-Item -ItemType Directory -Force $OutDir | Out-Null
-$out = Join-Path $OutDir "SeagullSwarm.dll"
-$sources = Get-ChildItem (Join-Path $PSScriptRoot "src") -Filter *.cs | ForEach-Object { $_.FullName }
+$out = Join-Path $OutDir "HowToFishExpanded.dll"
+$sources = Get-ChildItem (Join-Path $PSScriptRoot "src") -Recurse -Filter *.cs | ForEach-Object { $_.FullName }
 
 $cscArgs = @(
     "-nologo", "-target:library", "-optimize+", "-langversion:9.0",

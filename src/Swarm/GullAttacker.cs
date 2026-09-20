@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+using Expanded;
+
 namespace SeagullSwarm
 {
     /// <summary>
@@ -152,7 +154,7 @@ namespace SeagullSwarm
 
         private void TickApproach(float dt)
         {
-            SwarmConfig cfg = SeagullSwarmPlugin.Cfg;
+            SwarmConfig cfg = SwarmModule.Cfg;
 
             Vector3 pos = _bird.transform.position;
             Vector3 flat = pos - _director.Anchor;
@@ -182,7 +184,7 @@ namespace SeagullSwarm
 
         private void TickCircle(float dt)
         {
-            SwarmConfig cfg = SeagullSwarmPlugin.Cfg;
+            SwarmConfig cfg = SwarmModule.Cfg;
 
             float radius = cfg.CircleRadius.Value;
             float speed = cfg.CircleSpeed.Value;
@@ -202,7 +204,7 @@ namespace SeagullSwarm
         {
             if (!TargetValid()) { Rearm(); return; }
 
-            SwarmConfig cfg = SeagullSwarmPlugin.Cfg;
+            SwarmConfig cfg = SwarmModule.Cfg;
 
             Vector3 point = Chest(_target) + _attackOffset;
             MoveToward(point, cfg.ClimbSpeed.Value, dt);
@@ -220,7 +222,7 @@ namespace SeagullSwarm
             // a commit time (staggered slightly per bird), so a flight pauses and commits together.
             Vector3 point = Chest(_target) + _attackOffset;
             point.y += Mathf.Sin(Time.time * 2.2f + _bobPhase) * 0.35f;
-            MoveToward(point, SeagullSwarmPlugin.Cfg.ClimbSpeed.Value * 0.5f, dt);
+            MoveToward(point, SwarmModule.Cfg.ClimbSpeed.Value * 0.5f, dt);
 
             FaceTowards(Chest(_target) - _bird.transform.position, dt, 6f);
             _bird.SetAnimState(AnimFlapping);
@@ -267,7 +269,7 @@ namespace SeagullSwarm
         /// </summary>
         private void LaunchDive()
         {
-            SwarmConfig cfg = SeagullSwarmPlugin.Cfg;
+            SwarmConfig cfg = SwarmModule.Cfg;
 
             Vector3 p0 = _bird.transform.position;
             Vector3 aim = Chest(_target);
@@ -297,7 +299,7 @@ namespace SeagullSwarm
 
         private void TickDive(float dt)
         {
-            SwarmConfig cfg = SeagullSwarmPlugin.Cfg;
+            SwarmConfig cfg = SwarmModule.Cfg;
 
             Vector3 from = _bird.transform.position;
             _velocity += Vector3.down * cfg.DiveGravity.Value * dt;
@@ -327,7 +329,7 @@ namespace SeagullSwarm
 
         private void TickPeelOff(float dt)
         {
-            SwarmConfig cfg = SeagullSwarmPlugin.Cfg;
+            SwarmConfig cfg = SwarmModule.Cfg;
 
             Vector3 from = _bird.transform.position;
 
@@ -356,13 +358,13 @@ namespace SeagullSwarm
         {
             Vector3 pos = _bird.transform.position;
             Vector3 want = pos + _fleeDir * 30f + Vector3.up * 8f;
-            MoveToward(want, SeagullSwarmPlugin.Cfg.ApproachSpeed.Value * 1.3f, dt);
+            MoveToward(want, SwarmModule.Cfg.ApproachSpeed.Value * 1.3f, dt);
             _bird.SetAnimState(AnimFlappingUp);
         }
 
         private void Rearm()
         {
-            SwarmConfig cfg = SeagullSwarmPlugin.Cfg;
+            SwarmConfig cfg = SwarmModule.Cfg;
 
             if (_diveLaunched)
             {
@@ -389,7 +391,7 @@ namespace SeagullSwarm
         private static int CoverMask()
         {
             int mask = GameInfo.LevelLayer.value;
-            if (SeagullSwarmPlugin.Cfg.BoatIsSolid.Value) mask |= GameInfo.BoatLayer.value;
+            if (SwarmModule.Cfg.BoatIsSolid.Value) mask |= GameInfo.BoatLayer.value;
             return mask;
         }
 
@@ -400,7 +402,7 @@ namespace SeagullSwarm
         /// </summary>
         private Vector3? FindAttackPoint(Player target)
         {
-            SwarmConfig cfg = SeagullSwarmPlugin.Cfg;
+            SwarmConfig cfg = SwarmModule.Cfg;
 
             Vector3 chest = Chest(target);
             float altitude = _director.Anchor.y + cfg.CircleHeight.Value + cfg.ClimbHeight.Value;
@@ -432,7 +434,7 @@ namespace SeagullSwarm
         /// <summary>Raycast along the actual parabola the dive would follow, not just the chord.</summary>
         private bool DivePathClear(Vector3 p0, Vector3 aim)
         {
-            SwarmConfig cfg = SeagullSwarmPlugin.Cfg;
+            SwarmConfig cfg = SwarmModule.Cfg;
 
             float t = Mathf.Max(0.2f, cfg.DiveDuration.Value);
             Vector3 g = Vector3.down * cfg.DiveGravity.Value;
@@ -453,7 +455,7 @@ namespace SeagullSwarm
 
         private static Vector3 LaunchVelocity(Vector3 p0, Vector3 aim)
         {
-            SwarmConfig cfg = SeagullSwarmPlugin.Cfg;
+            SwarmConfig cfg = SwarmModule.Cfg;
             float t = Mathf.Max(0.2f, cfg.DiveDuration.Value);
             Vector3 g = Vector3.down * cfg.DiveGravity.Value;
             // p(t) = p0 + v0*t + 0.5*g*t^2  =>  v0 = (aim - p0 - 0.5*g*t^2) / t
@@ -463,7 +465,7 @@ namespace SeagullSwarm
         /// <summary>Mid-dive collision with rock, walls or the boat: the bird dies on impact.</summary>
         private bool Crashed(Vector3 from, Vector3 to)
         {
-            if (!SeagullSwarmPlugin.Cfg.CrashKillsBird.Value) return false;
+            if (!SwarmModule.Cfg.CrashKillsBird.Value) return false;
 
             RaycastHit hit;
             if (!Physics.Linecast(from, to, out hit, CoverMask(), QueryTriggerInteraction.Ignore)) return false;
@@ -492,7 +494,7 @@ namespace SeagullSwarm
         /// </summary>
         private void CheckContact(Vector3 from, Vector3 to)
         {
-            SwarmConfig cfg = SeagullSwarmPlugin.Cfg;
+            SwarmConfig cfg = SwarmModule.Cfg;
             float r = cfg.ContactRadius.Value;
             float rSqr = r * r;
             int mask = CoverMask();
@@ -565,7 +567,7 @@ namespace SeagullSwarm
         /// <summary>Lowest a bird may fly: the waterline, or the feet of its target if higher (deck, cliff).</summary>
         private float FloorY()
         {
-            float margin = SeagullSwarmPlugin.Cfg.WaterMargin.Value;
+            float margin = SwarmModule.Cfg.WaterMargin.Value;
             float floor = WaterY() + margin;
             if (_target != null) floor = Mathf.Max(floor, _target.Transform.position.y + margin * 0.5f);
             return floor;
@@ -598,11 +600,11 @@ namespace SeagullSwarm
                 if (Physics.Linecast(pos, next + step.normalized * 1.5f, CoverMask(), QueryTriggerInteraction.Ignore))
                     next = pos + Vector3.up * speed * dt;
 
-                float minY = WaterY() + SeagullSwarmPlugin.Cfg.WaterMargin.Value;
+                float minY = WaterY() + SwarmModule.Cfg.WaterMargin.Value;
                 if (next.y < minY) next.y = minY;
 
                 _bird.transform.position = next;
-                FaceTowards(delta, dt, SeagullSwarmPlugin.Cfg.TurnSpeed.Value);
+                FaceTowards(delta, dt, SwarmModule.Cfg.TurnSpeed.Value);
             }
 
             _bird.SetSpeed(speed);

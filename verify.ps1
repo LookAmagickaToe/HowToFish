@@ -101,6 +101,14 @@ Check-Method "AudioManager" "PlayRandomClipAt" @("String", "Int32", "Int32", "Ve
 Check-Field  "PlayerVitals" "_player" $null
 
 # Harmony binds injected arguments by NAME, so the parameter names matter, not just the types.
+Write-Host "`n-- Quests & story --"
+Check-Method "Creature"            "OnDeath"           @()
+Check-Method "OnlineIslandManager" "get_CurIsland"     @()
+Check-Method "MoneyManager"        "AddMoney"          @("Int32", "Player")
+Check-Method "Item"                "get_RandomizedWeight" @()
+Check-Field  "Item"                "_weight" $null   # protected on Item, inherited by Creature
+Check-Field  "ItemManager"         "Instance" "public"
+
 Write-Host "`n-- Harmony argument names --"
 $td = (Get-Type "PlayerVitals").Methods | Where-Object { $_.Name -eq "TakeDamage" } | Select-Object -First 1
 $pn = @($td.Parameters | ForEach-Object { $_.Name })
