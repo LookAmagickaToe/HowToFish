@@ -1,0 +1,116 @@
+#requires -Version 5.1
+<#
+    Static check that every Harmony target and every game member the plugin touches actually
+    exists in the shipped Assembly-CSharp.dll, with the signature the plugin assumes.
+    Reads metadata with Mono.Cecil (shipped inside BepInEx) - the game is never launched.
+#>
+param(
+    [string]$GameDir = "C:\Program Files (x86)\Steam\steamapps\common\How to Fish\How to Fish",
+    [string]$Cecil   = "C:\Users\Maxime\AppData\Local\Temp\htfdec\bepinex\BepInEx\core\Mono.Cecil.dll"
+)
+
+$ErrorActionPreference = "Stop"
+[void][System.Reflection.Assembly]::LoadFrom($Cecil)
+
+$asmPath = Join-Path $GameDir "How to Fish_Data\Managed\Assembly-CSharp.dll"
+$asm = [Mono.Cecil.AssemblyDefinition]::ReadAssembly($asmPath)
+$module = $asm.MainModule
+
+function Get-Type([string]$name) {
+    $t = $module.GetType($name)
+    if (-not $t) { throw "TYPE MISSING: $name" }
+    return $t
+}
+
+$fail = 0
+
+function Check-Method([string]$typeName, [string]$method, [string[]]$paramTypes) {
+    $t = Get-Type $typeName
+    $matches = @($t.Methods | Where-Object { $_.Name -eq $method })
+    if ($matches.Count -eq 0) {
+        Write-Host "  FAIL  $typeName.$method  -- no method by that name" -ForegroundColor Red
+        $script:fail++; return
+    }
+    foreach ($m in $matches) {
+        $actual = @($m.Parameters | ForEach-Object { $_.ParameterType.Name })
+        if ($null -eq $paramTypes) {
+            Write-Host "  ok    $typeName.$method($($actual -join ', '))" -ForegroundColor Green
+            return
+        }
+        if (($actual -join ',') -eq ($paramTypes -join ',')) {
+            Write-Host "  ok    $typeName.$method($($actual -join ', '))" -ForegroundColor Green
+            return
+        }
+    }
+    $seen = ($matches | ForEach-Object { "($(($_.Parameters | ForEach-Object { $_.ParameterType.Name }) -join ', '))" }) -join ' | '
+    Write-Host "  FAIL  $typeName.$method  -- wanted ($($paramTypes -join ', ')), found $seen" -ForegroundColor Red
+    $script:fail++
+}
+
+function Check-Field([string]$typeName, [string]$field, [string]$expectPublic) {
+    $t = Get-Type $typeName
+    $f = $t.Fields | Where-Object { $_.Name -eq $field } | Select-Object -First 1
+    if (-not $f) {
+        Write-Host "  FAIL  $typeName.$field  -- field missing" -ForegroundColor Red
+        $script:fail++; return
+    }
+    $vis = if ($f.IsPublic) { "public" } else { "non-public" }
+    if ($expectPublic -and $vis -ne $expectPublic) {
+        Write-Host "  FAIL  $typeName.$field  -- expected $expectPublic, is $vis" -ForegroundColor Red
+        $script:fail++; return
+    }
+    Write-Host "  ok    $typeName.$field : $($f.FieldType.Name) ($vis)" -ForegroundColor Green
+}
+
+Write-Host "`n-- Harmony patch targets --"
+Check-Method "BirdManager" "OnStartServer" @()
+Check-Method "BirdManager" "SimulateBird" @("Bird")
+Check-Method "Bird"        "OnDeath"      @()
+Check-Method "BossManager" "UpdateBossMaxHp" @()
+
+Write-Host "`n-- Damage path --"
+Check-Method "PlayerVitals" "TakeDamage"  @("Int32", "Vector3", "Vector3", "Boolean")
+Check-Method "PlayerVitals" "ObserverHit" @("Player", "Vector3", "Vector3", "Int32", "DamageType")
+
+Write-Host "`n-- Boss bar plumbing --"
+Check-Field  "Creature"    "_hp"         "public"
+Check-Field  "BossManager" "_bossMaxHp"  "public"
+Check-Method "BossManager" "ToggleImmortal" @("Boolean")
+
+Write-Host "`n-- Spawning & bird control --"
+Check-Method "ItemManager" "SpawnNewItem" @("Item", "Vector3", "Quaternion")
+Check-Method "GameInfo"    "GetSpawnable" @("String")
+Check-Method "Bird"        "SetAnimState" @("Byte")
+Check-Method "Bird"        "SetSpeed"     @("Single")
+Check-Method "Item"        "DestroyItem"  @("Byte", "Byte")
+
+Write-Host "`n-- Testing & diagnostics --"
+Check-Method "ChatManager"  "ChatMessage"       @("String")
+Check-Method "ChatManager"  "get_IsTyping"      @()
+Check-Method "Player"       "get_BlockInputs"   @()
+Check-Method "BossManager"  "get_BossLeavesTick" @()
+Check-Method "PlayerVitals" "get_Health"        @()
+
+Write-Host "`n-- Cover, water, leader, audio --"
+Check-Method "GameInfo"     "get_LevelLayer"   @()
+Check-Method "GameInfo"     "get_BoatLayer"    @()
+Check-Method "GameInfo"     "get_CurCamera"    @()
+Check-Method "WaterManager" "get_WaterHeight"  @()
+Check-Method "BossManager"  "GetBossMaxHp"     @("Int32", "Single")
+Check-Method "AudioManager" "PlayRandomClipAt" @("String", "Int32", "Int32", "Vector3", "Boolean", "AudioDistance", "Single", "Single")
+Check-Field  "PlayerVitals" "_player" $null
+
+# Harmony binds injected arguments by NAME, so the parameter names matter, not just the types.
+Write-Host "`n-- Harmony argument names --"
+$td = (Get-Type "PlayerVitals").Methods | Where-Object { $_.Name -eq "TakeDamage" } | Select-Object -First 1
+$pn = @($td.Parameters | ForEach-Object { $_.Name })
+if ($pn -contains "amount") { Write-Host "  ok    PlayerVitals.TakeDamage has parameter 'amount' ($($pn -join ', '))" -ForegroundColor Green }
+else { Write-Host "  FAIL  PlayerVitals.TakeDamage parameters are ($($pn -join ', ')), patch expects 'amount'" -ForegroundColor Red; $fail++ }
+$sb = (Get-Type "BirdManager").Methods | Where-Object { $_.Name -eq "SimulateBird" } | Select-Object -First 1
+$pn = @($sb.Parameters | ForEach-Object { $_.Name })
+if ($pn -contains "bird") { Write-Host "  ok    BirdManager.SimulateBird has parameter 'bird'" -ForegroundColor Green }
+else { Write-Host "  FAIL  BirdManager.SimulateBird parameters are ($($pn -join ', ')), patch expects 'bird'" -ForegroundColor Red; $fail++ }
+
+Write-Host ""
+if ($fail -gt 0) { Write-Host "$fail check(s) FAILED" -ForegroundColor Red; exit 1 }
+Write-Host "All patch targets and game members verified." -ForegroundColor Green
