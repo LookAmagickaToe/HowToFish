@@ -3,3 +3,6 @@ obj/
 bin/
 *.user
 *.suo
+
+assets/raw/
+
