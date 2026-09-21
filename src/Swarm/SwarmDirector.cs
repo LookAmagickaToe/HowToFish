@@ -98,9 +98,17 @@ namespace SeagullSwarm
             }
             // The game restores dead gulls from the save when an island loads, and each one reports a
             // death. Those aren't kills; only count what happens once the island is up and running.
-            if (Time.time - _attachedAt < 12f)
+            if (Time.time - _attachedAt < 5f)
             {
-                Diag.Debug("Seagull death while the island was loading - not counted.");
+                Diag.Info("Seagull death while the island was loading - not counted.");
+                return;
+            }
+
+            // The story comes first: while Old Salt still wants gulls fed to him, shooting them must
+            // not call down the swarm. Only once Bad Omens is done do kills anger the flock.
+            if (!OmensDone())
+            {
+                Diag.Info("Seagull killed - not counted for the swarm yet (Bad Omens isn't done).");
                 return;
             }
             _provokeKills.Add(Time.time);
@@ -807,7 +815,7 @@ namespace SeagullSwarm
             // that sells guns on), so the swarm can be called - and called again - at any time.
             int target;
             if (QuestWantsGulls()) target = Mathf.Max(0, cfg.LureMaxGulls.Value);
-            else if (CurrentIsland() >= Expanded.Content.PirateStory.IslandWithGuns) target = Mathf.Max(0, cfg.LureAmbient.Value);
+            else if (OmensDone() && CurrentIsland() >= Expanded.Content.PirateStory.IslandWithGuns) target = Mathf.Max(0, cfg.LureAmbient.Value);
             else return;
             if (_gullPrefab == null && !ResolvePrefabs()) return;
             if (_anchor == Vector3.zero) return;
@@ -892,6 +900,13 @@ namespace SeagullSwarm
 
             int ok = SpawnLureGulls(due);
             if (ok > 0) Diag.Info("Lure: " + ok + " replacement gull(s) flew in after a kill.");
+        }
+
+        /// <summary>True once Bad Omens is done (or there is no story running at all).</summary>
+        private static bool OmensDone()
+        {
+            Expanded.Quests.QuestEngine e = Expanded.Quests.QuestModule.Instance?.Engine;
+            return e == null || e.HasFlag(Expanded.Content.PirateStory.FlagOmens);
         }
 
         private static int CurrentIsland()
