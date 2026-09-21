@@ -51,6 +51,7 @@ namespace Expanded.Pirates
         private static readonly List<Moved> MovedParts = new List<Moved>();
         private static BoxCollider _trigger;
         private static float _nextCheck;
+        private static bool _toldWaiting;
 
         internal static bool Active => _visual != null;
         internal static GameObject VisualRoot => _visual;
@@ -71,8 +72,97 @@ namespace Expanded.Pirates
             // The boat was replaced (new island) or destroyed: our objects went with it; just forget them.
             if (Active && _boat != boat) Forget();
 
-            if (Wanted && boat != null && !Active) Apply(boat);
-            else if (!Wanted && Active) Revert();
+            bool fit = Wanted && boat != null && !Active;
+            bool strip = !Wanted && Active;
+            if (!fit && !strip) { _toldWaiting = false; return; }
+
+            // Never swap hulls out at sea: the new deck is somewhere else entirely, and everyone
+            // standing on the old one ends up inside or under it - and drowns. The prize is towed
+            // home and Mako rigs it at the mooring.
+            if (!AtMooring(boat))
+            {
+                if (!_toldWaiting)
+                {
+                    _toldWaiting = true;
+                    Diag.Info("PirateHull: hull change waits until the boat is back at the island.");
+                    if (fit)
+                        try { ChatManager.ChatMessage("<color=#E08040>[Pirates]</color> The Greedy Gull is towed home. Mako will rig her hull onto your boat once you're back at the island."); } catch { }
+                }
+                return;
+            }
+            _toldWaiting = false;
+
+            bool aboard = LocalAboard(boat);
+            if (fit) Apply(boat);
+            else Revert();
+            if (aboard) PutOnDeck(boat);
+        }
+
+        private static bool AtMooring(Boat boat)
+        {
+            try
+            {
+                if (boat == null) return true;
+                Vector3 a = BoatMount.Frame(boat).position, b = SpawnManager.BoatSpawnPos;
+                a.y = b.y = 0f;
+                return Vector3.Distance(a, b) < PirateModule.Cfg.AtSeaDistance.Value;
+            }
+            catch { return true; }
+        }
+
+        /// <summary>Is the local player standing on (or in) this boat right now?</summary>
+        private static bool LocalAboard(Boat boat)
+        {
+            Player me = Player.LocalPlayer;
+            if (me == null || boat == null || Boat.IsDrivingLocally) return false;
+            try
+            {
+                if (me.Movement.OnBoat) return true;
+                Transform f = BoatMount.Frame(boat);
+                Vector3 local = f.InverseTransformPoint(me.Transform.position);
+                return new Vector2(local.x, local.z).magnitude < 6f && Mathf.Abs(local.y) < 4f;
+            }
+            catch { return false; }
+        }
+
+        /// <summary>After the hull changed under the local player: stand them on top of the new deck.</summary>
+        private static void PutOnDeck(Boat boat)
+        {
+            Player me = Player.LocalPlayer;
+            if (me == null || boat == null) return;
+            try
+            {
+                Physics.SyncTransforms();
+                Transform f = BoatMount.Frame(boat);
+                Vector3 local = f.InverseTransformPoint(me.Transform.position);
+                // Towards the middle of the deck, where there surely is one.
+                Vector3 flat = new Vector3(local.x, 0f, local.z);
+                if (flat.magnitude > 1.5f) flat = flat.normalized * 1.5f;
+                Vector3 top = f.TransformPoint(new Vector3(flat.x, 25f, flat.z));
+
+                float best = float.MinValue;
+                foreach (RaycastHit h in Physics.RaycastAll(top, Vector3.down, 40f, ~0, QueryTriggerInteraction.Ignore))
+                {
+                    if (h.collider == null || !h.collider.enabled) continue;
+                    Boat owner;
+                    bool onBoat = h.collider.transform.IsChildOf(boat.transform) ||
+                                  (BoatManager.ColToBoat.TryGetValue(h.collider, out owner) && owner == boat);
+                    if (!onBoat || BoatMount.IsOurs(h.collider.transform)) continue;
+                    // The lowest walkable surface near deck height, not a mast top or a sail.
+                    float ly = f.InverseTransformPoint(h.point).y;
+                    if (ly > 6f) continue;
+                    if (h.point.y > best) best = h.point.y;
+                }
+
+                Vector3 target = f.TransformPoint(new Vector3(flat.x, 0f, flat.z));
+                target.y = best > float.MinValue ? best + 1.3f : f.position.y + 3f;
+                me.LocalTeleport(target, me.CurPlayerRot.eulerAngles.y, true);
+                Diag.Info("PirateHull: put the local player back on deck at " + target.ToString("F1") + ".");
+            }
+            catch (Exception e)
+            {
+                Diag.Exception("PirateHull.PutOnDeck", e);
+            }
         }
 
         // ------------------------------------------------------------------ apply
