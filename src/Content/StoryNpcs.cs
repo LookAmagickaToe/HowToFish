@@ -16,7 +16,10 @@ namespace Expanded.Content
         public int Slot;
         /// <summary>Flag that must be set before this character appears. Null = always present.</summary>
         public string AppearsAfter;
-        /// <summary>Idle chatter, keyed by the story flag that unlocks each line.</summary>
+        /// <summary>
+        /// Idle chatter, keyed by the story flag that unlocks each line. A key starting with "!" means
+        /// "only while this flag is NOT set" - for hints that stop once they've been acted on.
+        /// </summary>
         public List<KeyValuePair<string, string>> Barks = new List<KeyValuePair<string, string>>();
 
         public NpcDef Bark(string requiresFlag, string line)
@@ -47,9 +50,11 @@ namespace Expanded.Content
             }
             .Bark(null, "Fish don't catch themselves. Well. Mostly.")
             .Bark(null, "I was here before you. I'll be at the next island before you, too. Don't ask.")
+            .Bark("!" + PirateStory.FlagOmens, "Nothing to shoot with? The next island sells things that go bang. Find me there.")
+            .Bark("!" + PirateStory.FlagOmens, "The gulls here stole my teeth. When you've got a gun, we'll talk.")
             .Bark(PirateStory.FlagOmens, "Hear that? Gulls stopped screaming. Never a good sign.")
             .Bark(PirateStory.FlagChart, "Anne'll know what that chart means. She knows everything that's written down.")
-            .Bark(PirateStory.FlagPiratesBeaten, "Heard you sank a ship. Bold. Stupid, but bold."),
+            .Bark(PirateStory.FlagPiratesBeaten, "Heard you beat the Gull Pirates. Bold. Stupid, but bold."),
 
             new NpcDef
             {
@@ -57,14 +62,16 @@ namespace Expanded.Content
                 AppearsAfter = PirateStory.FlagChart
             }
             .Bark(PirateStory.FlagChart, "Every chart lies a little. This one lies a lot, which means it's worth something.")
-            .Bark(PirateStory.FlagPiratesBeaten, "The wreck's still out there. They were never after your boat, you know. They were after that chart."),
+            .Bark("!" + PirateStory.QuestPirates + ".done", "An eyepatched gull... I know that mark. But they sail from the third island. Get us there first.")
+            .Bark(PirateStory.FlagPiratesBeaten, "They were never after your boat, you know. They were after your lunch. And the chart. Mostly the lunch.")
+            .Bark(PirateStory.FlagPiratesBeaten, "Sail out with a boat full of grilled food and they'll come back for it. Just so you know."),
 
             new NpcDef
             {
                 Id = "mako", Name = Mako, Model = "characters_mako", Slot = 2,
                 AppearsAfter = PirateStory.FlagPiratesBeaten
             }
-            .Bark(PirateStory.FlagPiratesBeaten, "Rigged the Widow's hull over your old boat. Same motor underneath. Don't tell anyone.")
+            .Bark(PirateStory.FlagPiratesBeaten, "Rigged the Greedy Gull's hull over your old boat. Same motor underneath. Still smells of chips.")
             .Bark(PirateStory.FlagPiratesBeaten, "She's got a stern gun as well as the bow. Brace your knees, not your back.")
             .Bark(PirateStory.FlagPiratesBeaten, "Cannons work on fish too. Nobody told you that. Now somebody has.")
             .Bark(PirateStory.FlagPiratesBeaten, "Miss your old tub? Say the word and I'll swap the hulls back."),
@@ -88,7 +95,13 @@ namespace Expanded.Content
         {
             var lines = new List<string>();
             foreach (KeyValuePair<string, string> b in npc.Barks)
-                if (b.Key == null || (engine != null && engine.HasFlag(b.Key))) lines.Add(b.Value);
+            {
+                bool ok;
+                if (b.Key == null) ok = true;
+                else if (b.Key.StartsWith("!", StringComparison.Ordinal)) ok = engine == null || !engine.HasFlag(b.Key.Substring(1));
+                else ok = engine != null && engine.HasFlag(b.Key);
+                if (ok) lines.Add(b.Value);
+            }
             return lines;
         }
     }

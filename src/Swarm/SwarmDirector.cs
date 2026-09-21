@@ -334,7 +334,7 @@ namespace SeagullSwarm
                 ForceStart();
             }
 
-            if (!cfg.HotkeysEnabled.Value) return;
+            if (!cfg.HotkeysEnabled.Value || !ExpandedPlugin.DevHotkeys) return;
 
             // Don't fire while the host is typing in chat or otherwise has input blocked.
             if (ChatManager.IsTyping) return;

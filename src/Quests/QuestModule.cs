@@ -76,11 +76,13 @@ namespace Expanded.Quests
             Engine.LoadState(ModSave.Data.Quests, ModSave.Data.Flags);
             Engine.CurrentIsland = CurrentIsland();
             _lastIsland = Engine.CurrentIsland;
+            NoteIsland(Engine.CurrentIsland);
 
             List<QuestOutcome> offered = Engine.RefreshAvailability();
             Diag.Info("Quests: " + CountByStatus(QuestStatus.Completed) + " done, " +
                       CountByStatus(QuestStatus.Active) + " active, " + offered.Count +
-                      " newly offered on island " + Engine.CurrentIsland + ".");
+                      " newly offered on island " + Engine.CurrentIsland + " (furthest reached: " +
+                      Engine.HighestIsland + ").");
 
             Apply(offered);
             _snapshotDue = true;
@@ -114,7 +116,8 @@ namespace Expanded.Quests
                 {
                     _lastIsland = island;
                     Engine.CurrentIsland = island;
-                    Diag.Info("Quests: island changed to " + island + ".");
+                    NoteIsland(island);
+                    Diag.Info("Quests: island changed to " + island + " (furthest reached: " + Engine.HighestIsland + ").");
                     Apply(Engine.RefreshAvailability());
                 }
 
@@ -147,6 +150,19 @@ namespace Expanded.Quests
                 Raise(QuestEvent.Moved(_lastIsland, pos.x, pos.z));
             }
         }
+
+        internal const string HighestIslandKey = "islands.highest";
+
+        /// <summary>Remembers the furthest island ever reached, in the mod save (0 = starting island).</summary>
+        private void NoteIsland(int island)
+        {
+            int best = Math.Max(ModSave.Counter(HighestIslandKey), island);
+            if (best != ModSave.Counter(HighestIslandKey)) ModSave.SetCounter(HighestIslandKey, best);
+            Engine.HighestIsland = best;
+        }
+
+        /// <summary>Furthest island the crew has reached, on the host (0 = starting island).</summary>
+        internal static int HighestIsland => Math.Max(ModSave.Counter(HighestIslandKey), CurrentIsland());
 
         private static int CurrentIsland()
         {

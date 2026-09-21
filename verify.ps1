@@ -195,6 +195,14 @@ foreach ($m in @("PickUpInput", "PrimaryInput", "PrimaryInputCanceled", "Seconda
 Check-Method "PlayerPunching" "PunchInput"      @("CallbackContext")
 Check-Method "Boat"           "get_IsDrivingLocally" @()
 
+Write-Host "`n-- Human cannonball, gull-pirate raids, island gating --"
+Check-Method "PlayerMovement" "Teleport"        @("Vector3", "Boolean")
+Check-Method "PlayerMovement" "SetVel"          @("Vector3")
+Check-Method "Item"           "get_Cookness"    @()
+Check-Method "RigidbodySync"  "get_OnBoat"      @()
+Check-Method "ItemManager"    "get_Items"       @()
+Check-Method "OnlineIslandManager" "get_CurIsland" @()
+
 Write-Host "`n-- Chart mark on the radar --"
 foreach ($f in @("_islandDots", "_isOn", "_localPlayerPos", "_mapScale", "_zoomMultiplier", "_maxPosDist", "_radarSweepDir", "_angleForPing")) {
     Check-Field "RadarUI" $f $null

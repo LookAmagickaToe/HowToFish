@@ -18,6 +18,9 @@ namespace Expanded.Quests
         /// <summary>Island the party is currently on; gates which quests become offerable.</summary>
         public int CurrentIsland { get; set; }
 
+        /// <summary>Furthest island the crew has ever reached (0-based); gates quests with MinIsland.</summary>
+        public int HighestIsland { get; set; }
+
         public IEnumerable<QuestDef> Definitions => _defs.Values;
         public IReadOnlyCollection<string> Flags => _flags;
 
@@ -104,6 +107,7 @@ namespace Expanded.Quests
                 QuestProgress p = _progress[def.Id];
                 if (p.Status != QuestStatus.Locked) continue;
                 if (def.Island != 0 && def.Island != CurrentIsland) continue;
+                if (def.MinIsland > Math.Max(HighestIsland, CurrentIsland)) continue;
                 if (!RequirementsMet(def)) continue;
 
                 p.Status = QuestStatus.Available;

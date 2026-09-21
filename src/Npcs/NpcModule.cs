@@ -271,15 +271,15 @@ namespace Expanded.Npcs
                     if (fitted) SharedState.Grant(PirateHull.UnlockDisabled);
                     else SharedState.Revoke(PirateHull.UnlockDisabled);
                     PirateModule.Announce(fitted ? "Mako strips the pirate hull off. Your old boat is back."
-                                                 : "Mako rigs the Widow's hull onto your boat. She's yours to sail.");
+                                                 : "Mako rigs the Greedy Gull's hull onto your boat. She's yours to sail.");
                     lines.Add(fitted ? "There. Your old tub, good as it ever was. Which isn't very." :
-                                       "Done. The Widow rides again. Try not to sink her twice.");
+                                       "Done. The Greedy Gull rides again. Try not to sink her twice.");
                     return lines;
                 }
 
                 AddLines(lines, RandomBark(npc, engine));
                 lines.Add(fitted ? "Want your old boat back? Talk to me again and I'll swap the hulls."
-                                 : "Want the Widow's hull back on? Talk to me again and I'll rig it.");
+                                 : "Want the Greedy Gull's hull back on? Talk to me again and I'll rig it.");
                 _swapArmedFor = conn;
                 _swapArmedUntil = Time.time + 30f;
                 return lines;

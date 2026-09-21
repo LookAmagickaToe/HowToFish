@@ -34,6 +34,11 @@ namespace Expanded.Content
         public const string UnlockPirateShip = "ship.pirate";
         public const string UnlockChartShop = "shop.charts";
 
+        // Islands are 0-based: 0 is where a new game starts. Guns are sold from the second island,
+        // and the pirates sail from the third.
+        public const int IslandWithGuns = 1;
+        public const int IslandOfPirates = 2;
+
         public static void Register(QuestEngine e)
         {
             e.Register(BadOmens());
@@ -50,15 +55,16 @@ namespace Expanded.Content
                 Title = "Bad Omens",
                 Giver = StoryNpcs.OldSalt,
                 Summary = "The gulls here have lost their manners.",
-                OfferText = "Gulls been screaming at me all week. Not at the fish. At me.\n" +
-                            "Thin 'em out, would you? Three should do it.\n" +
-                            "And bring 'em here. I want to see them. Then I want to eat them.",
-                ActiveText = "Three gulls. The white ones, with the attitude. Toss 'em to me.",
-                DoneText = "Three down and the rest went quiet. That's not better. That's worse."
+                OfferText = "You've got something that goes bang now. Good. I've got a gull problem.\n" +
+                            "They steal chips. They steal hats. One of 'em stole my teeth and I want them back.\n" +
+                            "Shoot three and bring 'em here. I'll check their pockets. Then I'll eat the evidence.",
+                ActiveText = "Three gulls. The white ones, with the attitude. Toss 'em to me, I'm peckish.",
+                DoneText = "No teeth. But they tasted of chips, so somebody's still feeding them. Somebody organised."
             };
+            q.MinIsland = IslandWithGuns;
             q.Steps.Add(new QuestStep("Feed 3 dead seagulls to Old Salt", Objective.Deliver(StoryNpcs.OldSalt, "seagull", 3),
                                       "The gulls fall silent. Something out there noticed."));
-            q.Rewards.Add(Reward.Money(150));
+            q.Rewards.Add(Reward.Money(50));
             q.Rewards.Add(Reward.Flag(FlagOmens));
             return q;
         }
@@ -78,16 +84,16 @@ namespace Expanded.Content
                             "Last all the waves and they're done. Go down, or take too long, and they just leave. Laughing.",
                 ActiveText = "Five gulls inside three minutes. That's what calls the flock.\n" +
                              "Then break every wave before its time runs out. Watch the bar at the top.",
-                DoneText = "Something fell out of that last flock. An oilcloth chart. Gulls don't carry charts. Someone sent them."
+                DoneText = "Something fell out of that last flock. A chart. With a gull on it. Wearing an eyepatch.\n" +
+                           "Gulls don't draw charts. Gull PIRATES do. Take it to Anne, she reads."
             };
             q.Requires.Add(FlagOmens);
             q.Steps.Add(new QuestStep("Kill 5 gulls within 3 minutes to call the swarm, then survive all its waves",
                                       Objective.Flag(FlagSwarmDefeated),
-                                      "The last gull dropped something as it fell: an oilcloth chart."));
-            q.Rewards.Add(Reward.Money(400));
+                                      "The last gull dropped something as it fell: a chart with an eyepatched gull on it."));
+            q.Rewards.Add(Reward.Money(150));
             q.Rewards.Add(Reward.Flag(FlagChart));
             q.Rewards.Add(Reward.Flag(FlagFlock));
-            q.Rewards.Add(Reward.ShopStock(UnlockChartShop));
             return q;
         }
 
@@ -109,7 +115,7 @@ namespace Expanded.Content
             // 2 kg, in tenths of a gram so no float comparison is involved.
             q.Steps.Add(new QuestStep("Catch a pike of at least 2 kg", Objective.CatchWeight("pike", 20000),
                                       "Now that is a fish."));
-            q.Rewards.Add(Reward.Money(300));
+            q.Rewards.Add(Reward.Money(100));
             return q;
         }
 
@@ -124,26 +130,29 @@ namespace Expanded.Content
                 Id = QuestPirates,
                 Title = "Colours at Dawn",
                 Giver = StoryNpcs.Anne,
-                Summary = "The chart marks a wreck. Someone else's chart does too, and they have cannons.",
-                OfferText = "Give me that. ...Oh. Oh no.\n" +
-                            "This is the Salted Widow's last haul. Her captain's been hunting this chart for a month, " +
-                            "and the mark on it is two hundred metres off this very island.\n" +
-                            "He's out there now. You can't outrun him in that tub - but you could outgun him.\n" +
-                            "The shop sells swivel guns, right next to the motors. Buy one, then go and see what's at the mark.",
-                ActiveText = "Gun first, then the mark. Look for a flag bobbing on the water. And don't let him get side-on to you.",
-                DoneText = "You sank the Salted Widow. People are going to start telling stories about you. Wrong ones, mostly."
+                Summary = "The chart belongs to the Gull Pirates. They want it back. They also want your lunch.",
+                OfferText = "Give me that. ...Oh. Oh no. The eyepatched gull.\n" +
+                            "That's the mark of the Gull Pirates. Humans, technically. They just live like gulls: " +
+                            "screaming, stealing, eating chips off strangers.\n" +
+                            "Captain Squawk sails the Greedy Gull. This chart marks their favourite snack spot, just off this island.\n" +
+                            "They've got cannons, so you'll want one too. The shop sells swivel guns, next to the motors.\n" +
+                            "Then go and see who's at the mark. Tip: don't bring a barbecue. They can smell it for miles.",
+                ActiveText = "Gun first, then the mark - it's the red dot on your radar. And don't let them get side-on to you.",
+                DoneText = "You beat the Gull Pirates! Squawk will be furious. He's always furious. It's mostly the diet.\n" +
+                           "Word of warning: they'll be back whenever you sail out with a boat full of grilled food."
             };
             q.Requires.Add(FlagChart);
+            q.MinIsland = IslandOfPirates;
             q.Steps.Add(new QuestStep("Buy a swivel gun at the shop (next to the boat motors)",
                                       Objective.Flag(FlagCannonBought),
-                                      "Bolted to the bow. It'll kick. Good."));
-            q.Steps.Add(new QuestStep("Sail to the flag the chart marks",
+                                      "Bolted to the bow. Press E at it to man it. It'll kick. Good."));
+            q.Steps.Add(new QuestStep("Sail to the red dot on your radar (the chart's mark)",
                                       Objective.Flag(FlagSiteReached),
-                                      "Nothing at the mark but a buoy... and sails on the horizon."));
-            q.Steps.Add(new QuestStep("Sink the Salted Widow - or shoot her captain",
+                                      "Nothing at the mark but a buoy... and a sail with a gull on it."));
+            q.Steps.Add(new QuestStep("Sink the Greedy Gull - or shoot Captain Squawk",
                                       Objective.Flag(FlagPiratesBeaten),
-                                      "Their colours come down. The Widow is yours."));
-            q.Rewards.Add(Reward.Money(1000));
+                                      "Their colours come down. The Greedy Gull is yours."));
+            q.Rewards.Add(Reward.Money(300));
             q.Rewards.Add(Reward.Unlock(UnlockPirateShip));
             return q;
         }

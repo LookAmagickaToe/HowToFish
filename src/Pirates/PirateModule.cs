@@ -129,10 +129,14 @@ namespace Expanded.Pirates
             PirateHull.ClientTick();
             ShopCannon.ClientTick();
             ChartSite.ClientTick();
+            PirateChatter.ClientTick();
         }
 
         /// <summary>True on the host while an enemy ship exists.</summary>
         internal bool ShipOut => _spawned != null;
+
+        /// <summary>The enemy ship's health, 0-1, as every client knows it.</summary>
+        internal float ReplicatedHealthFraction => _barVisible && _barMax > 0f ? Mathf.Clamp01(_barHp / _barMax) : 1f;
 
         /// <summary>True on every machine while an enemy ship is afloat (from the replicated status).</summary>
         internal bool ShipFightActive => _barVisible && _barHp > 0f;
@@ -341,7 +345,7 @@ namespace Expanded.Pirates
 
                 Diag.Info("Pirates: ship spawned (" + (story ? "story" : "raid") + ") at " + pos.ToString("F1") + ".");
                 Announce(story
-                    ? "Sails behind the buoy - the Salted Widow was waiting for you. Man the bow gun, and shoot her captain if you can."
+                    ? "A sail with a gull on it - the Greedy Gull was waiting at the mark! Man the bow gun (E), and shoot Captain Squawk if you can."
                     : "A ship flying no colours is closing fast. Word of your money travels.");
                 return true;
             }
@@ -437,14 +441,34 @@ namespace Expanded.Pirates
 
         internal void OnShipLeaving(string why)
         {
+            // A raid that isn't beaten gets what it came for.
+            if (!_spawnedForStory)
+            {
+                List<Item> food = GrilledFoodOnBoard();
+                int stolen = 0;
+                foreach (Item item in food)
+                {
+                    try { item.DestroyItem((byte)DestroyReason.Default); stolen++; }
+                    catch (Exception e) { Diag.Exception("Raid: steal food", e); }
+                }
+                if (stolen > 0)
+                {
+                    Announce("The Gull Pirates swoop in and snatch your barbecue - " + stolen + " grilled treat" +
+                             (stolen == 1 ? "" : "s") + " gone! (" + why + ")");
+                    ModSave.AddCounter("pirates.food.stolen", stolen);
+                    return;
+                }
+            }
             Announce("The pirates break off - " + why + ".");
         }
 
         // ------------------------------------------------------------------ raids (host)
 
         /// <summary>
-        /// Random raids on rich crews, only after the story fight. The story fight itself is
-        /// triggered by reaching the chart's mark (see ChartSite).
+        /// The Gull Pirates can smell a barbecue for miles. Once the crew has reached the island they
+        /// sail from, taking enough grilled food out to sea brings them in to steal it: beat them and
+        /// keep your lunch (plus theirs), lose or run out the clock and they take it.
+        /// The story fight at the chart's mark is separate (see ChartSite).
         /// </summary>
         private void TickRaids()
         {
@@ -455,12 +479,39 @@ namespace Expanded.Pirates
             if (_atSeaSince < 0f) _atSeaSince = Time.time;
 
             if (StoryFightPending()) return;   // the story owns the sea until Act 1 is done
-            if (!RaidEligible()) return;
             if (Time.time < _nextRaidRoll) return;
-            _nextRaidRoll = Time.time + 60f;
+            _nextRaidRoll = Time.time + 15f;
+            if (!RaidEligible()) return;
 
-            if (UnityEngine.Random.value < Cfg.RaidChancePerMinute.Value)
-                SpawnShip(false);
+            // Give them a moment to "smell" it, so a raid doesn't pounce the second you leave port.
+            if (Time.time - _atSeaSince < 20f || UnityEngine.Random.value > 0.5f) return;
+
+            int food = GrilledFoodOnBoard().Count;
+            Announce("A ship with a gull on its flag turns towards you. They can smell your barbecue (" + food + " grilled)!");
+            SpawnShip(false);
+        }
+
+        /// <summary>Cooked animals lying in the boat (not the ones in someone's hands).</summary>
+        internal static List<Item> GrilledFoodOnBoard()
+        {
+            var list = new List<Item>();
+            float cooked = Cfg.RaidCookedAt.Value;
+            try
+            {
+                foreach (KeyValuePair<Transform, Item> kv in ItemManager.Items)
+                {
+                    Item item = kv.Value;
+                    if (item == null || item.IsDestroying || item.IsDeinitializing || item.Creature == null) continue;
+                    if (item.Cookness < cooked) continue;
+                    if (item.RigidbodySync == null || !item.RigidbodySync.OnBoat) continue;
+                    list.Add(item);
+                }
+            }
+            catch (Exception e)
+            {
+                Diag.Exception("GrilledFoodOnBoard", e);
+            }
+            return list;
         }
 
         private static bool BoatAtSea()
@@ -485,14 +536,10 @@ namespace Expanded.Pirates
 
         private bool RaidEligible()
         {
-            if (Cfg.RaidMoneyThreshold.Value <= 0) return false;
-            QuestEngine engine = QuestModule.Instance?.Engine;
-            if (engine == null || !engine.HasFlag(PirateStory.FlagPiratesBeaten)) return false;
+            if (Cfg.RaidGrilledFood.Value <= 0) return false;
+            if (QuestModule.HighestIsland < Cfg.RaidFromIsland.Value) return false;
             if (Time.time - _lastRaidEnded < Cfg.RaidCooldownMinutes.Value * 60f) return false;
-
-            int money;
-            try { money = MoneyManager.Money; } catch { return false; }
-            return money >= Cfg.RaidMoneyThreshold.Value;
+            return GrilledFoodOnBoard().Count >= Cfg.RaidGrilledFood.Value;
         }
 
         // ------------------------------------------------------------------ networking
@@ -598,6 +645,7 @@ namespace Expanded.Pirates
         internal override void OnGUI()
         {
             DeckCannon.OnGUI();
+            PirateChatter.OnGUI();
 
             if (!_barVisible) return;
 

@@ -66,7 +66,7 @@ namespace Expanded.Pirates
                 return;
             }
 
-            // Step 2: the Widow is waiting here. If she is not out (first arrival, or she broke off
+            // Step 2: the Greedy Gull is waiting here. If she is not out (first arrival, or she broke off
             // earlier), coming back within range brings her in again - a natural retry.
             if (p.StepIndex == 2 && !PirateModule.Instance.ShipOut && dist <= Cfg.SiteEngageRadius.Value)
                 PirateModule.Instance.SpawnShip(true, _pos);

@@ -108,6 +108,11 @@ namespace Expanded.Quests
         public string Summary = "";
         /// <summary>Island the quest becomes offerable on; 0 = anywhere.</summary>
         public int Island;
+        /// <summary>
+        /// Furthest island (0-based: 0 = the starting island) the crew must have reached before this
+        /// quest is offered. 0 = no requirement. Stories unfold as the game hands out the tools for them.
+        /// </summary>
+        public int MinIsland;
         /// <summary>Story flags that must all be set before this quest is offered.</summary>
         public List<string> Requires = new List<string>();
         public List<QuestStep> Steps = new List<QuestStep>();

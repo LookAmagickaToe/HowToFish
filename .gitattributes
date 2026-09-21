@@ -1,0 +1,8 @@
+# Shipped binaries must reach players byte for byte.
+*.dll binary
+release/game-files/BepInEx/plugins/ExpandedAssets/pirates binary
+release/game-files/BepInEx/plugins/ExpandedAssets/characters binary
+
+# Windows scripts keep Windows line endings.
+*.bat text eol=crlf
+*.ps1 text eol=crlf

@@ -204,6 +204,15 @@ namespace Expanded.Pirates
             if (_manned >= Guns.Count || Guns[_manned].Model == null) { Dismount("gun gone"); return; }
 
             Gun g = Guns[_manned];
+
+            // F: climb into the barrel and fire yourself. Purely for fun; the landing is your problem.
+            if (Cfg.CannonballLaunchSpeed.Value > 0f && Time.time - _mannedAt > 0.3f &&
+                !ChatManager.IsTyping && !me.BlockInputs && Input.GetKeyDown(KeyCode.F))
+            {
+                LaunchSelf(me, g);
+                return;
+            }
+
             if (!g.Loaded && g.ReloadDoneAt > 0f && Time.time >= g.ReloadDoneAt)
             {
                 g.Loaded = true;
@@ -214,6 +223,34 @@ namespace Expanded.Pirates
             Vector3 aim = AimDirection();
             g.Model.transform.rotation = Quaternion.Slerp(g.Model.transform.rotation,
                 Quaternion.LookRotation(aim, Vector3.up), Time.deltaTime * 14f);
+        }
+
+        /// <summary>
+        /// The human cannonball: the gunner leaves the gun at the muzzle with the gun's aim (a little
+        /// extra loft so it's a proper arc) and a bang. Player movement is the client's own, so the
+        /// flight is seen by everyone without any extra networking.
+        /// </summary>
+        private static void LaunchSelf(Player me, Gun g)
+        {
+            Vector3 aim = (AimDirection() + Vector3.up * 0.35f).normalized;
+            Vector3 muzzle = g.Model.transform.position + Vector3.up * 0.9f + aim * 1.4f;
+
+            Dismount("human cannonball");
+            try
+            {
+                PlayerMovement mv = me.GetComponentInChildren<PlayerMovement>(true);
+                if (mv == null) return;
+                mv.Teleport(muzzle, true);
+                mv.SetVel(aim * Cfg.CannonballLaunchSpeed.Value);
+                AudioManager.PlayClipAt("Explosion", muzzle, true, AudioDistance.Long, 0.35f, 0.05f);
+                ParticleManager.Play("Ashes", muzzle, aim);
+                ModSave.AddCounter("cannon.humans.fired", 1);
+                Diag.Info("DeckCannon: human cannonball away at " + Cfg.CannonballLaunchSpeed.Value.ToString("0") + " m/s.");
+            }
+            catch (Exception e)
+            {
+                Diag.Exception("DeckCannon.LaunchSelf", e);
+            }
         }
 
         /// <summary>Where the gunner stands: on deck, a step behind the breech.</summary>
@@ -319,11 +356,13 @@ namespace Expanded.Pirates
             else if (g.ReloadDoneAt > 0f) { state = "RELOADING  " + Mathf.Max(0f, g.ReloadDoneAt - Time.time).ToString("0.0") + "s"; _state.normal.textColor = new Color(1f, 0.85f, 0.4f); }
             else { state = "EMPTY - press R"; _state.normal.textColor = new Color(1f, 0.45f, 0.35f); }
 
-            const float w = 360f;
-            Rect box = new Rect((Screen.width - w) * 0.5f, Screen.height - 150f, w, 62f);
+            bool human = Cfg.CannonballLaunchSpeed.Value > 0f;
+            const float w = 420f;
+            Rect box = new Rect((Screen.width - w) * 0.5f, Screen.height - 150f - (human ? 22f : 0f), w, human ? 84f : 62f);
             PirateModule.DrawRect(box, new Color(0f, 0f, 0f, 0.45f));
             GUI.Label(new Rect(box.x, box.y + 4f, w, 28f), state, _state);
             GUI.Label(new Rect(box.x, box.y + 32f, w, 24f), "Left click  Fire     R  Reload     E  Leave", _hud);
+            if (human) GUI.Label(new Rect(box.x, box.y + 54f, w, 24f), "F  Fire yourself (human cannonball!)", _hud);
         }
 
         // ------------------------------------------------------------------ host

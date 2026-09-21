@@ -31,6 +31,10 @@ namespace Expanded
         private ConfigEntry<float> _statusInterval;
         private ConfigEntry<KeyCode> _overlayKey;
         private ConfigEntry<bool> _overlayEnabled;
+        private ConfigEntry<bool> _devHotkeys;
+
+        /// <summary>True only when developer hotkeys are switched on in the config.</summary>
+        internal static bool DevHotkeys => Instance != null && Instance._devHotkeys != null && Instance._devHotkeys.Value;
 
         private Harmony _harmony;
         private bool _overlayVisible;
@@ -46,8 +50,11 @@ namespace Expanded
                 "Log every state change from every module. Noisy but invaluable when something misbehaves.");
             _statusInterval = Config.Bind("Debug", "StatusIntervalSeconds", 5f,
                 "How often modules write a status snapshot to the log during an encounter. 0 = off.");
+            _devHotkeys = Config.Bind("Debug", "DevHotkeys", false,
+                "Developer keys (F1 overlay, F2 swarm, F4 pirates, F7 test weapon, ...). Off in the real game: " +
+                "everything happens through play. Turn on only for testing.");
             _overlayEnabled = Config.Bind("Debug", "OverlayEnabled", true,
-                "Allow the on-screen debug overlay (listing modules and their hotkeys).");
+                "Allow the on-screen debug overlay (listing modules and their hotkeys). Needs DevHotkeys.");
             _overlayKey = Config.Bind("Debug", "OverlayKey", KeyCode.F1,
                 "Toggles the debug overlay.");
 
@@ -67,7 +74,7 @@ namespace Expanded
             ConfigureModules();
             PatchModules();
 
-            Diag.Info("Ready. " + _overlayKey.Value + " shows the module overlay.");
+            Diag.Info("Ready. Developer hotkeys " + (_devHotkeys.Value ? "ON (" + _overlayKey.Value + " shows the overlay)" : "off") + ".");
         }
 
         /// <summary>Module order defines overlay order. Add new modules here.</summary>
@@ -254,6 +261,9 @@ namespace Expanded
 
         private void HandleHotkeys()
         {
+            // The real game has no cheat keys; they exist only for testing.
+            if (!_devHotkeys.Value) { _overlayVisible = false; return; }
+
             // Never steal keys while the player is typing in chat or a menu has input.
             if (ChatManager.IsTyping) return;
             if (Player.LocalPlayer != null && Player.LocalPlayer.BlockInputs) return;

@@ -107,10 +107,17 @@ namespace Expanded.Tests
         {
             Section("act 1 plays through end to end");
             QuestEngine e = Story();
+            e.CurrentIsland = 0;
+            e.RefreshAvailability();
+            Check(e.Progress(PirateStory.QuestOmens).Status == QuestStatus.Locked, "no gull job on the starting island (no gun yet)");
+            Check(StoryNpcs.CurrentBarks(StoryNpcs.ById("salt"), e).Exists(l => l.Contains("next island")),
+                  "Old Salt points you to the next island meanwhile");
+
             e.CurrentIsland = 1;
+            e.HighestIsland = 1;
             e.RefreshAvailability();
 
-            Check(e.Progress(PirateStory.QuestOmens).Status == QuestStatus.Available, "opening quest offered at start");
+            Check(e.Progress(PirateStory.QuestOmens).Status == QuestStatus.Available, "opening quest offered on the second island");
             Check(e.Progress(PirateStory.QuestPirates).Status == QuestStatus.Locked, "finale locked at start");
             Check(!StoryNpcs.IsPresent(StoryNpcs.ById("anne"), e), "Anne not present yet");
 
@@ -133,7 +140,18 @@ namespace Expanded.Tests
             Check(e.Progress(PirateStory.QuestFlock).Status == QuestStatus.Completed, "beating the swarm completes it");
             Check(e.HasFlag(PirateStory.FlagChart), "the chart flag is raised");
             Check(StoryNpcs.IsPresent(StoryNpcs.ById("anne"), e), "Anne appears once the chart turns up");
-            Check(e.Progress(PirateStory.QuestPirates).Status == QuestStatus.Available, "finale offered");
+            Check(e.Progress(PirateStory.QuestPirates).Status == QuestStatus.Locked, "no pirates before the third island");
+            Check(StoryNpcs.CurrentBarks(StoryNpcs.ById("anne"), e).Exists(l => l.Contains("third island")),
+                  "Anne tells you where the pirates sail from");
+
+            e.CurrentIsland = 2;
+            e.HighestIsland = 2;
+            e.RefreshAvailability();
+            Check(e.Progress(PirateStory.QuestPirates).Status == QuestStatus.Available, "finale offered on the third island");
+
+            e.CurrentIsland = 0;   // sailing back home keeps what was unlocked
+            e.RefreshAvailability();
+            Check(e.Progress(PirateStory.QuestPirates).Status == QuestStatus.Available, "finale stays offered back home");
 
             Check(e.Accept(PirateStory.QuestPirates), "accept Colours at Dawn");
             Check(e.Progress(PirateStory.QuestPirates).StepIndex == 0, "first beat: buy a gun");
@@ -149,6 +167,8 @@ namespace Expanded.Tests
             Check(!outcomes.Any(o => o.Kind == QuestOutcome.Type.RewardGranted && o.Reward.Key == PirateStory.UnlockCannon),
                   "the cannon is bought, not handed out");
             Check(StoryNpcs.IsPresent(StoryNpcs.ById("mako"), e), "Mako the shipwright appears afterwards");
+            Check(!StoryNpcs.CurrentBarks(StoryNpcs.ById("anne"), e).Exists(l => l.Contains("third island")),
+                  "Anne stops giving directions once the pirates are beaten");
         }
 
         /// <summary>Doing things early must never break the chain later.</summary>
@@ -156,6 +176,7 @@ namespace Expanded.Tests
         {
             Section("out-of-order events are harmless");
             QuestEngine e = Story();
+            e.HighestIsland = 5;
             e.RefreshAvailability();
 
             // Beating the swarm before being asked to must not complete a quest you never took...

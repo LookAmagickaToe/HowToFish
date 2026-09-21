@@ -1,0 +1,134 @@
+﻿{
+  "models": [
+    {
+      "asset": "assets/characters/characters_anne.fbx",
+      "vertexColours": false,
+      "clips": ["CharacterArmature|CharacterArmature|CharacterArmature|Yes|CharacterArmature|Yes", "CharacterArmature|CharacterArmature|CharacterArmature|No|CharacterArmature|No", "CharacterArmature|CharacterArmature|CharacterArmature|Run|CharacterArmature|Run", "CharacterArmature|CharacterArmature|CharacterArmature|Jump_Land|CharacterArmature", "CharacterArmature|CharacterArmature|CharacterArmature|HitReact|CharacterArmature|", "CharacterArmature|CharacterArmature|CharacterArmature|Jump_Idle|CharacterArmature", "CharacterArmature|CharacterArmature|CharacterArmature|Jump|CharacterArmature|Jump", "CharacterArmature|CharacterArmature|CharacterArmature|Punch|CharacterArmature|Pun", "CharacterArmature|CharacterArmature|CharacterArmature|Death|CharacterArmature|Dea", "CharacterArmature|CharacterArmature|CharacterArmature|Sword|CharacterArmature|Swo", "CharacterArmature|CharacterArmature|CharacterArmature|Idle|CharacterArmature|Idle", "CharacterArmature|CharacterArmature|CharacterArmature|Walk|CharacterArmature|Walk", "CharacterArmature|CharacterArmature|CharacterArmature|Wave|CharacterArmature|Wave", "CharacterArmature|CharacterArmature|CharacterArmature|Duck|CharacterArmature|Duck"],
+      "renderers": [
+        { "path": "CharacterArmature/Root/Body/Hips/Abdomen/Torso/Shoulder.L/UpperArm.L/LowerArm.L/Middle1.L/Weapon_DoubleAxe", "colours": [[0.8,0.8,0.8,1]] },
+        { "path": "Cube.117", "colours": [[0.8,0.8,0.8,1]] }
+      ]
+    },
+    {
+      "asset": "assets/characters/characters_captain_barbarossa.fbx",
+      "vertexColours": false,
+      "clips": ["CharacterArmature|CharacterArmature|CharacterArmature|Yes|CharacterArmature|Yes", "CharacterArmature|CharacterArmature|CharacterArmature|No|CharacterArmature|No", "CharacterArmature|CharacterArmature|CharacterArmature|Run|CharacterArmature|Run", "CharacterArmature|CharacterArmature|CharacterArmature|Jump_Land|CharacterArmature", "CharacterArmature|CharacterArmature|CharacterArmature|HitReact|CharacterArmature|", "CharacterArmature|CharacterArmature|CharacterArmature|Jump_Idle|CharacterArmature", "CharacterArmature|CharacterArmature|CharacterArmature|Jump|CharacterArmature|Jump", "CharacterArmature|CharacterArmature|CharacterArmature|Punch|CharacterArmature|Pun", "CharacterArmature|CharacterArmature|CharacterArmature|Death|CharacterArmature|Dea", "CharacterArmature|CharacterArmature|CharacterArmature|Sword|CharacterArmature|Swo", "CharacterArmature|CharacterArmature|CharacterArmature|Idle|CharacterArmature|Idle", "CharacterArmature|CharacterArmature|CharacterArmature|Walk|CharacterArmature|Walk", "CharacterArmature|CharacterArmature|CharacterArmature|Wave|CharacterArmature|Wave", "CharacterArmature|CharacterArmature|CharacterArmature|Duck|CharacterArmature|Duck"],
+      "renderers": [
+        { "path": "Captain_Barbarossa ", "colours": [[0.8,0.8,0.8,1]] },
+        { "path": "CharacterArmature/Root/Body/Hips/Abdomen/Torso/Shoulder.R/UpperArm.R/LowerArm.R/Middle1.R/Weapon_Cutlass", "colours": [[0.8,0.8,0.8,1]] },
+        { "path": "Ernest", "colours": [[0.8,0.8,0.8,1]] }
+      ]
+    },
+    {
+      "asset": "assets/characters/characters_henry.fbx",
+      "vertexColours": false,
+      "clips": ["CharacterArmature|CharacterArmature|CharacterArmature|Yes|CharacterArmature|Yes", "CharacterArmature|CharacterArmature|CharacterArmature|No|CharacterArmature|No", "CharacterArmature|CharacterArmature|CharacterArmature|Run|CharacterArmature|Run", "CharacterArmature|CharacterArmature|CharacterArmature|Jump_Land|CharacterArmature", "CharacterArmature|CharacterArmature|CharacterArmature|HitReact|CharacterArmature|", "CharacterArmature|CharacterArmature|CharacterArmature|Jump_Idle|CharacterArmature", "CharacterArmature|CharacterArmature|CharacterArmature|Jump|CharacterArmature|Jump", "CharacterArmature|CharacterArmature|CharacterArmature|Punch|CharacterArmature|Pun", "CharacterArmature|CharacterArmature|CharacterArmature|Death|CharacterArmature|Dea", "CharacterArmature|CharacterArmature|CharacterArmature|Sword|CharacterArmature|Swo", "CharacterArmature|CharacterArmature|CharacterArmature|Idle|CharacterArmature|Idle", "CharacterArmature|CharacterArmature|CharacterArmature|Walk|CharacterArmature|Walk", "CharacterArmature|CharacterArmature|CharacterArmature|Wave|CharacterArmature|Wave", "CharacterArmature|CharacterArmature|CharacterArmature|Duck|CharacterArmature|Duck"],
+      "renderers": [
+        { "path": "CharacterArmature/Root/Body/Hips/Abdomen/Torso/Shoulder.L/UpperArm.L/LowerArm.L/Middle1.L/Weapon_Lute", "colours": [[0.8,0.8,0.8,1]] },
+        { "path": "Henry.002", "colours": [[0.8,0.8,0.8,1]] }
+      ]
+    },
+    {
+      "asset": "assets/characters/characters_mako.fbx",
+      "vertexColours": false,
+      "clips": ["CharacterArmature|CharacterArmature|CharacterArmature|Yes|CharacterArmature|Yes", "CharacterArmature|CharacterArmature|CharacterArmature|No|CharacterArmature|No", "CharacterArmature|CharacterArmature|CharacterArmature|Run|CharacterArmature|Run", "CharacterArmature|CharacterArmature|CharacterArmature|Jump_Land|CharacterArmature", "CharacterArmature|CharacterArmature|CharacterArmature|HitReact|CharacterArmature|", "CharacterArmature|CharacterArmature|CharacterArmature|Jump_Idle|CharacterArmature", "CharacterArmature|CharacterArmature|CharacterArmature|Jump|CharacterArmature|Jump", "CharacterArmature|CharacterArmature|CharacterArmature|Punch|CharacterArmature|Pun", "CharacterArmature|CharacterArmature|CharacterArmature|Death|CharacterArmature|Dea", "CharacterArmature|CharacterArmature|CharacterArmature|Sword|CharacterArmature|Swo", "CharacterArmature|CharacterArmature|CharacterArmature|Idle|CharacterArmature|Idle", "CharacterArmature|CharacterArmature|CharacterArmature|Walk|CharacterArmature|Walk", "CharacterArmature|CharacterArmature|CharacterArmature|Wave|CharacterArmature|Wave", "CharacterArmature|CharacterArmature|CharacterArmature|Duck|CharacterArmature|Duck"],
+      "renderers": [
+        { "path": "CharacterArmature/Root/Body/Hips/Abdomen/Torso/Shoulder.L/UpperArm.L/LowerArm.L/Middle1.L/Weapon_Sword", "colours": [[0.8,0.8,0.8,1]] },
+        { "path": "Mako", "colours": [[0.8,0.8,0.8,1]] }
+      ]
+    },
+    {
+      "asset": "assets/characters/characters_shark.fbx",
+      "vertexColours": false,
+      "clips": ["SharkArmature|SharkArmature|SharkArmature|Swim_Fast|SharkArmature|Swim_Fast", "SharkArmature|SharkArmature|SharkArmature|Swim_Bite|SharkArmature|Swim_Bite", "SharkArmature|SharkArmature|SharkArmature|Swim|SharkArmature|Swim"],
+      "renderers": [
+        { "path": "Shark", "colours": [[0.8,0.8,0.8,1]] },
+        { "path": "Shark.001", "colours": [[0.8,0.8,0.8,1]] }
+      ]
+    },
+    {
+      "asset": "assets/characters/characters_sharky.fbx",
+      "vertexColours": false,
+      "clips": ["CharacterArmature|CharacterArmature|CharacterArmature|Yes|CharacterArmature|Yes", "CharacterArmature|CharacterArmature|CharacterArmature|No|CharacterArmature|No", "CharacterArmature|CharacterArmature|CharacterArmature|Run|CharacterArmature|Run", "CharacterArmature|CharacterArmature|CharacterArmature|Jump_Land|CharacterArmature", "CharacterArmature|CharacterArmature|CharacterArmature|HitReact|CharacterArmature|", "CharacterArmature|CharacterArmature|CharacterArmature|Jump_Idle|CharacterArmature", "CharacterArmature|CharacterArmature|CharacterArmature|Jump|CharacterArmature|Jump", "CharacterArmature|CharacterArmature|CharacterArmature|Punch|CharacterArmature|Pun", "CharacterArmature|CharacterArmature|CharacterArmature|Death|CharacterArmature|Dea", "CharacterArmature|CharacterArmature|CharacterArmature|Sword|CharacterArmature|Swo", "CharacterArmature|CharacterArmature|CharacterArmature|Idle|CharacterArmature|Idle", "CharacterArmature|CharacterArmature|CharacterArmature|Walk|CharacterArmature|Walk", "CharacterArmature|CharacterArmature|CharacterArmature|Wave|CharacterArmature|Wave", "CharacterArmature|CharacterArmature|CharacterArmature|Duck|CharacterArmature|Duck"],
+      "renderers": [
+        { "path": "CharacterArmature/Root/Body/Hips/Abdomen/Torso/Shoulder.L/UpperArm.L/LowerArm.L/Middle1.L/Weapon_Sword_2", "colours": [[0.8,0.8,0.8,1]] },
+        { "path": "Cube.001", "colours": [[0.8,0.8,0.8,1]] },
+        { "path": "Sharky", "colours": [[0.8,0.8,0.8,1]] }
+      ]
+    },
+    {
+      "asset": "assets/characters/characters_skeleton.fbx",
+      "vertexColours": false,
+      "clips": ["CharacterArmature|CharacterArmature|CharacterArmature|Yes|CharacterArmature|Yes", "CharacterArmature|CharacterArmature|CharacterArmature|No|CharacterArmature|No", "CharacterArmature|CharacterArmature|CharacterArmature|Run|CharacterArmature|Run", "CharacterArmature|CharacterArmature|CharacterArmature|Jump_Land|CharacterArmature", "CharacterArmature|CharacterArmature|CharacterArmature|Jump_Idlea|CharacterArmatur", "CharacterArmature|CharacterArmature|CharacterArmature|HitReact|CharacterArmature|", "CharacterArmature|CharacterArmature|CharacterArmature|Jump_Idle|CharacterArmature", "CharacterArmature|CharacterArmature|CharacterArmature|Jump|CharacterArmature|Jump", "CharacterArmature|CharacterArmature|CharacterArmature|Punch|CharacterArmature|Pun", "CharacterArmature|CharacterArmature|CharacterArmature|Death|CharacterArmature|Dea", "CharacterArmature|CharacterArmature|CharacterArmature|Sword|CharacterArmature|Swo", "CharacterArmature|CharacterArmature|CharacterArmature|Idle|CharacterArmature|Idle", "CharacterArmature|CharacterArmature|CharacterArmature|Walk|CharacterArmature|Walk", "CharacterArmature|CharacterArmature|CharacterArmature|Wave|CharacterArmature|Wave", "CharacterArmature|CharacterArmature|CharacterArmature|Duck|CharacterArmature|Duck"],
+      "renderers": [
+        { "path": "CharacterArmature/Root/Body/Hips/Abdomen/Torso/Shoulder.L/UpperArm.L/LowerArm.L/Middle1.L/Weapon_Dagger", "colours": [[0.8,0.8,0.8,1]] },
+        { "path": "Skeleton", "colours": [[0.8,0.8,0.8,1]] }
+      ]
+    },
+    {
+      "asset": "assets/characters/characters_skeleton_headless.fbx",
+      "vertexColours": false,
+      "clips": ["CharacterArmature|CharacterArmature|CharacterArmature|Yes|CharacterArmature|Yes", "CharacterArmature|CharacterArmature|CharacterArmature|No|CharacterArmature|No", "CharacterArmature|CharacterArmature|CharacterArmature|Run|CharacterArmature|Run", "CharacterArmature|CharacterArmature|CharacterArmature|Jump_Land|CharacterArmature", "CharacterArmature|CharacterArmature|CharacterArmature|Jump_Idlea|CharacterArmatur", "CharacterArmature|CharacterArmature|CharacterArmature|HitReact|CharacterArmature|", "CharacterArmature|CharacterArmature|CharacterArmature|Jump_Idle|CharacterArmature", "CharacterArmature|CharacterArmature|CharacterArmature|Jump|CharacterArmature|Jump", "CharacterArmature|CharacterArmature|CharacterArmature|Punch|CharacterArmature|Pun", "CharacterArmature|CharacterArmature|CharacterArmature|Death|CharacterArmature|Dea", "CharacterArmature|CharacterArmature|CharacterArmature|Sword|CharacterArmature|Swo", "CharacterArmature|CharacterArmature|CharacterArmature|Idle|CharacterArmature|Idle", "CharacterArmature|CharacterArmature|CharacterArmature|Walk|CharacterArmature|Walk", "CharacterArmature|CharacterArmature|CharacterArmature|Wave|CharacterArmature|Wave", "CharacterArmature|CharacterArmature|CharacterArmature|Duck|CharacterArmature|Duck"],
+      "renderers": [
+        { "path": "CharacterArmature/Root/Body/Hips/Abdomen/Torso/Shoulder.L/UpperArm.L/LowerArm.L/Middle1.L/Weapon_Axe", "colours": [[0.8,0.8,0.8,1]] },
+        { "path": "Skeleton", "colours": [[0.8,0.8,0.8,1]] }
+      ]
+    },
+    {
+      "asset": "assets/characters/characters_tentacle.fbx",
+      "vertexColours": false,
+      "clips": ["TentacleArmature|TentacleArmature|TentacleArmature|Tentacle_Poke|TentacleArmatur", "TentacleArmature|TentacleArmature|TentacleArmature|Tentacle_Attack|TentacleArmat", "TentacleArmature|TentacleArmature|TentacleArmature|Tentacle_Idle|TentacleArmatur", "TentacleArmature|TentacleArmature|TentacleArmature|Tentacle_Attack2|TentacleArma"],
+      "renderers": [
+        { "path": "Enemy_Tentacle", "colours": [[0.8,0.8,0.8,1]] }
+      ]
+    },
+    {
+      "asset": "assets/characters/prop_bottle_1.fbx",
+      "vertexColours": false,
+      "clips": [],
+      "renderers": [
+        { "path": "", "colours": [[0.8,0.8,0.8,1]] }
+      ]
+    },
+    {
+      "asset": "assets/characters/prop_chest_gold.fbx",
+      "vertexColours": false,
+      "clips": [],
+      "renderers": [
+        { "path": "", "colours": [[0.8,0.8,0.8,1]] }
+      ]
+    },
+    {
+      "asset": "assets/characters/prop_coins.fbx",
+      "vertexColours": false,
+      "clips": [],
+      "renderers": [
+        { "path": "", "colours": [[0.8,0.8,0.8,1]] }
+      ]
+    },
+    {
+      "asset": "assets/characters/prop_goldbag.fbx",
+      "vertexColours": false,
+      "clips": [],
+      "renderers": [
+        { "path": "", "colours": [[0.8,0.8,0.8,1]] }
+      ]
+    },
+    {
+      "asset": "assets/characters/weapon_cutlass.fbx",
+      "vertexColours": false,
+      "clips": [],
+      "renderers": [
+        { "path": "", "colours": [[0.8,0.8,0.8,1]] }
+      ]
+    },
+    {
+      "asset": "assets/characters/weapon_pistol.fbx",
+      "vertexColours": false,
+      "clips": [],
+      "renderers": [
+        { "path": "", "colours": [[0.8,0.8,0.8,1]] }
+      ]
+    }
+  ]
+}

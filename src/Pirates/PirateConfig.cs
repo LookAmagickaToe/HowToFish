@@ -69,10 +69,13 @@ namespace Expanded.Pirates
         public readonly ConfigEntry<float> SiteDistance;
         public readonly ConfigEntry<float> SiteReachRadius;
         public readonly ConfigEntry<float> SiteEngageRadius;
-        public readonly ConfigEntry<int> RaidMoneyThreshold;
+        public readonly ConfigEntry<int> RaidFromIsland;
+        public readonly ConfigEntry<int> RaidGrilledFood;
+        public readonly ConfigEntry<float> RaidCookedAt;
         public readonly ConfigEntry<float> RaidCooldownMinutes;
-        public readonly ConfigEntry<float> RaidChancePerMinute;
         public readonly ConfigEntry<int> RaidLootMoney;
+        public readonly ConfigEntry<bool> CrewChatter;
+        public readonly ConfigEntry<float> CannonballLaunchSpeed;
 
         public PirateConfig(ConfigFile c)
         {
@@ -82,7 +85,7 @@ namespace Expanded.Pirates
             const string P = "Pirates.DeckCannon";
             const string T = "Pirates.Triggers";
 
-            ShipName = c.Bind(S, "ShipName", "The Salted Widow", "Name shown on the health bar.");
+            ShipName = c.Bind(S, "Name", "The Greedy Gull", "Name shown on the health bar.");
             Model = c.Bind(S, "Model", "ship-pirate-large", "Kit model used for the enemy ship.");
             Scale = c.Bind(S, "Scale", 1f, "Extra scaling on top of the model's own size.");
             Health = c.Bind(S, "Health", 400f,
@@ -161,7 +164,9 @@ namespace Expanded.Pirates
             DeckCannonScale = c.Bind(P, "ModelScale", 0.55f,
                 "Size of the swivel gun on your boat and in the shop. The model is built for a 13 m pirate ship; " +
                 "0.55 suits the small boat.");
-            CannonPrice = c.Bind(P, "Price", 750, "What the swivel gun costs in the shop.");
+            CannonPrice = c.Bind(P, "ShopPrice", 250, "What the swivel gun costs in the shop.");
+            CannonballLaunchSpeed = c.Bind(P, "HumanCannonballSpeed", 28f,
+                "Press F at a manned gun to fire yourself out of it. Launch speed in m/s; 0 = off.");
 
             AtSeaDistance = c.Bind(T, "AtSeaDistance", 70f,
                 "How far your boat must be from the island's mooring to count as at sea.");
@@ -171,12 +176,18 @@ namespace Expanded.Pirates
                 "How close to the buoy counts as having arrived.");
             SiteEngageRadius = c.Bind(T, "ChartMarkEngageRadius", 140f,
                 "During the fight step, coming this close to the mark brings the pirate ship in.");
-            RaidMoneyThreshold = c.Bind(T, "RaidMoneyThreshold", 2500,
-                "After the story fight, crews with at least this much money can be raided. 0 = never.");
-            RaidCooldownMinutes = c.Bind(T, "RaidCooldownMinutes", 20f, "Minimum time between raids.");
-            RaidChancePerMinute = c.Bind(T, "RaidChancePerMinute", 0.2f,
-                "Chance per minute at sea of a raid once eligible.");
-            RaidLootMoney = c.Bind(T, "RaidLootMoney", 600, "Money for sinking a raider.");
+            const string R = "Pirates.Raids";
+            RaidFromIsland = c.Bind(R, "FromIsland", 2,
+                "The Gull Pirates only show up once the crew has reached this island (0 = the starting island, " +
+                "2 = the third). The story fight at the chart mark follows the same rule.");
+            RaidGrilledFood = c.Bind(R, "GrilledFoodOnBoard", 5,
+                "Sail out with at least this much grilled food lying in your boat and the Gull Pirates come for it. " +
+                "0 = no raids.");
+            RaidCookedAt = c.Bind(R, "CookedAt", 0.6f,
+                "How cooked (0 raw - 1 done - 2 charcoal) an animal must be to count as grilled food.");
+            RaidCooldownMinutes = c.Bind(R, "CooldownMinutes", 8f, "Minimum time between raids.");
+            RaidLootMoney = c.Bind(R, "LootMoney", 150, "Money for beating a raid.");
+            CrewChatter = c.Bind(S, "CrewChatter", true, "Speech bubbles over the pirates during a fight.");
         }
     }
 }
