@@ -101,7 +101,7 @@ namespace Expanded.Megalodon
 
             Physics.SyncTransforms();
             Vector3 pos;
-            if (!ShopCannon.FindSpot(anchor.transform, out pos))
+            if (!ShopCannon.FindSpot(anchor.transform, out pos) && !FindAnySpot(anchor.transform, out pos))
             {
                 Diag.Warn("WakeShop: no free spot next to the motors.");
                 return;
@@ -145,6 +145,36 @@ namespace Expanded.Megalodon
             {
                 Diag.Exception("WakeShop.Build", e);
             }
+        }
+
+        /// <summary>
+        /// Fallback when the spots at the ends of the motor row are taken (the swivel gun usually
+        /// has the only one): any flat, free floor in a ring around the motors, not too close to the gun.
+        /// </summary>
+        private static bool FindAnySpot(Transform anchor, out Vector3 pos)
+        {
+            pos = anchor.position;
+            Vector3 centre = anchor.position;
+            float start = anchor.eulerAngles.y * Mathf.Deg2Rad;
+            foreach (float radius in new[] { 1.3f, 1.9f, 2.6f, 3.4f })
+            {
+                for (int i = 0; i < 16; i++)
+                {
+                    float a = start + i * Mathf.PI * 2f / 16f;
+                    Vector3 c = centre + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * radius;
+                    RaycastHit hit;
+                    if (!Physics.Raycast(c + Vector3.up * 1.6f, Vector3.down, out hit, 4f, ~0, QueryTriggerInteraction.Ignore)) continue;
+                    if (Vector3.Dot(hit.normal, Vector3.up) < 0.8f) continue;
+                    if (Mathf.Abs(hit.point.y - centre.y) > 1.5f) continue;
+                    if (hit.point.y < PirateModule.WaterY() + 0.05f) continue;   // not in the sea
+                    if (Physics.CheckSphere(hit.point + Vector3.up * 0.8f, 0.3f, ~0, QueryTriggerInteraction.Ignore)) continue;
+                    if (Physics.CheckSphere(hit.point + Vector3.up * 0.3f, 0.2f, ~0, QueryTriggerInteraction.Ignore)) continue;
+                    pos = hit.point;
+                    Diag.Info("WakeShop: motor row was full; wakeboard set on '" + hit.collider.name + "' " + radius.ToString("0.0") + " m from the motors.");
+                    return true;
+                }
+            }
+            return false;
         }
 
         internal static void Clear()

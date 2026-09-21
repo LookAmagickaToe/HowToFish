@@ -116,12 +116,12 @@ namespace Expanded.Megalodon
                 if (_rider == null)
                 {
                     if (_noRiderSince < 0f) _noRiderSince = now;
-                    if (now - _noRiderSince > 15f) { Leave("it lost interest - nobody's dangling off the boat"); return; }
+                    if (now - _noRiderSince > (_debugSpawn ? 90f : 15f)) { Leave("it lost interest - nobody's dangling off the boat"); return; }
                 }
                 else _noRiderSince = -1f;
 
                 if (Tow.Boat == null) { Leave("the boat is gone"); return; }
-                if (Tow.DistanceFromMooring() < 55f) { Leave("it won't follow you into the shallows"); return; }
+                if (!_debugSpawn && Tow.DistanceFromMooring() < 55f) { Leave("it won't follow you into the shallows"); return; }
                 if (now - _startedAt > Cfg.MaxFightMinutes.Value * 60f) { Leave("it got bored"); return; }
             }
 
@@ -215,6 +215,7 @@ namespace Expanded.Megalodon
             _burpAt = -1f;
             _decoy = null;
             _ev = null;
+            _debugSpawn = false;
             SetMode(SharkMode.Stalk);
             _modeUntil = Time.time + 7f;
 
@@ -961,10 +962,21 @@ namespace Expanded.Megalodon
         }
 
         /// <summary>Debug: leave now, or send it away if it is out.</summary>
+        private static bool _debugSpawn;
+
+        /// <summary>
+        /// Debug: send it in (or away). A debug megalodon also hands out the wakeboard, ignores the
+        /// shallows and waits a good while for someone to grab the rope - it only hunts wakeboarders.
+        /// </summary>
         internal static void DebugToggle()
         {
             if (Active) { Leave("debug key"); return; }
+            if (SharedState.Grant(MegalodonStory.UnlockWakeboard))
+                MegaModule.Announce("Debug: wakeboard unlocked - it leans by the helm, press E at it.");
             Spawn();
+            _debugSpawn = true;
+            if (WakeRig.RiderId < 0)
+                MegaModule.Announce("It only hunts wakeboarders: grab the board by the helm (E) and have someone drive.");
         }
 
         internal static void DebugDamage(float fraction) => Damage(MaxHp * fraction, "debug key");
