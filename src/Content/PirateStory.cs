@@ -59,7 +59,9 @@ namespace Expanded.Content
                             "They steal chips. They steal hats. One of 'em stole my teeth and I want them back.\n" +
                             "Shoot three and bring 'em here. I'll check their pockets. Then I'll eat the evidence.",
                 ActiveText = "Three gulls. The white ones, with the attitude. Toss 'em to me, I'm peckish.",
-                DoneText = "No teeth. But they tasted of chips, so somebody's still feeding them. Somebody organised."
+                DoneText = "No teeth. But they tasted of chips, so somebody's still feeding them. Somebody organised.\n" +
+                           "And a warning, since I like you: don't shoot too many at once. Five in a few minutes and the " +
+                           "whole flock comes for you. Wave after wave."
             };
             q.MinIsland = IslandWithGuns;
             q.Steps.Add(new QuestStep("Feed 3 dead seagulls to Old Salt", Objective.Deliver(StoryNpcs.OldSalt, "seagull", 3),

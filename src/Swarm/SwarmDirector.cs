@@ -104,13 +104,6 @@ namespace SeagullSwarm
                 return;
             }
 
-            // The story comes first: while Old Salt still wants gulls fed to him, shooting them must
-            // not call down the swarm. Only once Bad Omens is done do kills anger the flock.
-            if (!OmensDone())
-            {
-                Diag.Info("Seagull killed - not counted for the swarm yet (Bad Omens isn't done).");
-                return;
-            }
             _provokeKills.Add(Time.time);
 
             float delay = SwarmModule.Cfg.LureReplaceSeconds.Value;
@@ -902,7 +895,11 @@ namespace SeagullSwarm
             if (ok > 0) Diag.Info("Lure: " + ok + " replacement gull(s) flew in after a kill.");
         }
 
-        /// <summary>True once Bad Omens is done (or there is no story running at all).</summary>
+        /// <summary>
+        /// True once Bad Omens is done (or there is no story running at all). The swarm itself always
+        /// punishes too many kills; this only decides when extra gulls start hanging around - after
+        /// Old Salt has warned the players about the flock.
+        /// </summary>
         private static bool OmensDone()
         {
             Expanded.Quests.QuestEngine e = Expanded.Quests.QuestModule.Instance?.Engine;

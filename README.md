@@ -42,7 +42,9 @@ There are no cheat keys in normal play. For testing, set `Debug / DevHotkeys = t
    whatever island you're on - look for the **!**. Nobody from the story is on the first island.
 2. *Bad Omens*: shoot three seagulls and throw them to him. He eats them (1/3,
    2/3, 3/3). Reward: $50. Extra gulls fly in while a gull job is running.
-3. *The Flock Breaks*: kill five gulls inside three minutes to call the swarm, then survive every
+3. **The swarm is the flock's revenge** - at any time, killing five gulls inside three minutes brings
+   it down on you. Old Salt warns you about it once Bad Omens is done.
+   *The Flock Breaks*: call the swarm on purpose, then survive every
    wave - each bigger than the last, each with a time limit (bar at the top). Everyone down or time
    up and they simply leave. Win and a chart falls out of the last flock: an eyepatched gull on it.
 4. **Anne** reads it: the mark of the **Gull Pirates** - humans who live like gulls. They sail from

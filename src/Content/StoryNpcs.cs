@@ -56,6 +56,7 @@ namespace Expanded.Content
             .Bark(null, "Fish don't catch themselves. Well. Mostly.")
             .Bark(null, "I was here before you. I'll be at the next island before you, too. Don't ask.")
             .Bark(PirateStory.FlagOmens, "Hear that? Gulls stopped screaming. Never a good sign.")
+            .Bark(PirateStory.FlagOmens, "Easy with the gulls. Shoot five in a hurry and the rest of 'em hold a grudge. In waves.")
             .Bark(PirateStory.FlagChart, "Anne'll know what that chart means. She knows everything that's written down.")
             .Bark(PirateStory.FlagPiratesBeaten, "Heard you beat the Gull Pirates. Bold. Stupid, but bold."),
 
