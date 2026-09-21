@@ -73,13 +73,15 @@ namespace Expanded.Content
                 Giver = StoryNpcs.OldSalt,
                 Summary = "They came back with a leader. Break the flock.",
                 OfferText = "When gulls go quiet it means they're fetching someone bigger.\n" +
-                            "Keep killing them and he'll come. Big bird. Bigger opinion of himself.\n" +
-                            "Take him down and bring me whatever he's carrying.",
-                ActiveText = "Keep at the gulls. The big one comes when they've had enough.",
+                            "Kill five of 'em quick - inside three minutes - and the whole flock comes for you.\n" +
+                            "Leading them: an albatross. Big bird. Bigger opinion of himself.\n" +
+                            "Shoot him down and the rest scatter. Then bring me whatever he's carrying.",
+                ActiveText = "Five gulls inside three minutes. That's what calls the flock.\n" +
+                             "When they come, go for the albatross - the one with the health bar. Kill him and it's over.",
                 DoneText = "An oilcloth chart, tied to his leg. Birds don't tie knots. Someone sent it."
             };
             q.Requires.Add(FlagOmens);
-            q.Steps.Add(new QuestStep("Survive the seagull swarm and kill the Albatross",
+            q.Steps.Add(new QuestStep("Kill 5 gulls within 3 minutes to call the swarm, then kill the Albatross",
                                       Objective.Flag(FlagSwarmDefeated),
                                       "Something was tangled round the albatross's leg: an oilcloth chart."));
             q.Rewards.Add(Reward.Money(400));
