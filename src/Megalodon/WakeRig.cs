@@ -132,12 +132,22 @@ namespace Expanded.Megalodon
         private static void Apply(int rider, Board tier, float rope)
         {
             bool tierChanged = tier != Tier;
-            RiderId = rider;
-            Tier = tier;
-            Rope = rope;
+            // On the host these fields are already the truth; its own copy of an older broadcast
+            // arriving late must not roll them back.
+            if (!InstanceFinder.IsServerStarted)
+            {
+                RiderId = rider;
+                Tier = tier;
+                Rope = rope;
+            }
 
             bool mine = LocalIsRider;
-            if (mine && !Wakeboard.Riding) Wakeboard.Begin();
+            if (mine && !Wakeboard.Riding)
+            {
+                Wakeboard.Begin();
+                if (!Wakeboard.Riding)
+                    ModNet.SendToServer(Msg.WakeRequest, w => { w.Write(false); w.Write("could not start riding"); });
+            }
             else if (!mine && Wakeboard.Riding) Wakeboard.End("the rope went to someone else", false);
             if (tierChanged) _boardTier = (Board)255;   // rebuild the board under the rider
         }

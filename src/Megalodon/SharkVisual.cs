@@ -116,6 +116,8 @@ namespace Expanded.Megalodon
                     MegaFx.Banner("...it's gone. For now.", new Color(0.8f, 0.9f, 1f), 2.5f);
                     return;
                 case EvKind.RodeoStart:
+                    if (me != null && me.OwnerId == ev.Extra) Wakeboard.ConfirmRodeo();
+                    return;
                 case EvKind.RodeoEnd:
                     return;
                 case EvKind.Swallow:
@@ -312,7 +314,8 @@ namespace Expanded.Megalodon
                     float feet = body.y - (Wakeboard.Riding ? Wakeboard.FeetOffset : 0.95f);
                     float head = body.y + 0.8f;
                     float flat = new Vector2(mouth.x - body.x, mouth.z - body.z).magnitude;
-                    bool inHeight = mouth.y >= feet - 0.4f && mouth.y <= head + 0.4f;
+                    // Jaws coming down from above still get you - hence the generous margin upwards.
+                    bool inHeight = mouth.y >= feet - 0.4f && mouth.y <= head + 1f;
                     if (flat < Cfg.BiteRadius.Value && inHeight)
                     {
                         _evBitMe = true;

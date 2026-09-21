@@ -22,6 +22,7 @@ namespace Expanded.Megalodon
         private static readonly FieldInfo FOrigHeight = AccessTools.Field(typeof(PlayerMovement), "_origColHeight");
 
         private static Func<float, Vector3> _source;
+        private static Action _onAbort;
         private static Vector3 _pose;
         private static int _frame = -1;
         private static string _who = "";
@@ -35,11 +36,12 @@ namespace Expanded.Megalodon
         /// Starts holding. <paramref name="source"/> is called once per frame with the frame's delta
         /// time and returns where the body should be.
         /// </summary>
-        internal static bool Begin(string who, Func<float, Vector3> source, Vector3 initial)
+        internal static bool Begin(string who, Func<float, Vector3> source, Vector3 initial, Action onAbort = null)
         {
             Player me = Player.LocalPlayer;
             if (me == null || source == null) return false;
             _source = source;
+            _onAbort = onAbort;
             _pose = initial;
             _frame = Time.frameCount;
             _who = who;
@@ -56,6 +58,7 @@ namespace Expanded.Megalodon
             if (!Active) return;
             Active = false;
             _source = null;
+            _onAbort = null;
             Player me = Player.LocalPlayer;
             if (me != null)
             {
@@ -82,7 +85,9 @@ namespace Expanded.Megalodon
             catch (Exception e)
             {
                 Diag.Exception("PlayerHold source (" + _who + ")", e);
+                Action abort = _onAbort;
                 End(Vector3.zero, "error");
+                try { abort?.Invoke(); } catch (Exception e2) { Diag.Exception("PlayerHold abort", e2); }
                 return;
             }
             Apply();

@@ -71,6 +71,10 @@ namespace Expanded.Megalodon
         [HarmonyPrefix, HarmonyPatch(typeof(PlayerHolding), "PickUpInput")]
         private static bool PlayerHolding_PickUpInput()
         {
+            // Chat and menus don't switch input actions off; the game checks BlockInputs itself.
+            // So must we, or typing "e" in chat drops the rider in front of the megalodon.
+            Player me = Player.LocalPlayer;
+            if (me == null || me.BlockInputs) return true;
             if (MegaStomach.Active) { MegaStomach.Grab(); return false; }
             if (Wakeboard.Riding && Time.time - _ridingSince > 0.4f) { Wakeboard.LetGo("let go"); return false; }
             return true;

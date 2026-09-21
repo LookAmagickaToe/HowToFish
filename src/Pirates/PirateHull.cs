@@ -136,6 +136,7 @@ namespace Expanded.Pirates
 
                 BoatMount.Invalidate();
                 DeckCannon.ForceRebuild();
+                Expanded.Megalodon.WakeRig.RebuildRack();
                 Diag.Info("PirateHull: fitted facing " + BowLocal(boat) + " - " + HiddenRenderers.Count + " old meshes hidden, " +
                           AddedColliders.Count + " deck colliders, helm moved.");
             }
@@ -302,6 +303,7 @@ namespace Expanded.Pirates
             Forget();
             BoatMount.Invalidate();
             DeckCannon.ForceRebuild();
+            Expanded.Megalodon.WakeRig.RebuildRack();
         }
 
         /// <summary>Drops all bookkeeping without touching the (possibly destroyed) boat.</summary>

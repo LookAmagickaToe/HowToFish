@@ -1,6 +1,7 @@
 using System;
 using BepInEx.Configuration;
 using Expanded.Content;
+using Expanded.Pirates;
 using FishNet;
 using FishNet.Connection;
 using UnityEngine;
@@ -59,6 +60,16 @@ namespace Expanded.Megalodon
             MegaHazards.RegisterHandlers();
             MegaBoat.RegisterHandlers();
             WakeShop.RegisterServerHandler();
+
+            // Announcements ride the Pirates module's chat message. If that module is switched off,
+            // show them ourselves.
+            if (PirateModule.Instance == null || !PirateModule.Instance.IsEnabled)
+                ModNet.OnClient(Msg.EventBanner, r =>
+                {
+                    string text = r.ReadString();
+                    if (text.Length > 0 && text[0] == '\u0001') text = text.Substring(1);
+                    try { ChatManager.ChatMessage("<color=#4FA8E0>[Sea]</color> " + text); } catch { }
+                });
 
             _late = new GameObject("ExpandedMegalodonLate");
             UnityEngine.Object.DontDestroyOnLoad(_late);

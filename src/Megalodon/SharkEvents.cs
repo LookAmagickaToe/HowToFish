@@ -159,15 +159,18 @@ namespace Expanded.Megalodon
             // A strike.
             if (t < Telegraph)
             {
-                Vector3 dirA = Flat(Tangent(0f), Vector3.forward);
-                Vector3 end = A - dirA * mouthOffset;
+                // Ends exactly where the strike begins - same point, same tilt - so nothing jumps at
+                // the moment it breaks the surface.
+                Vector3 tan0 = Tangent(0f);
+                Vector3 dirA = Flat(tan0, Vector3.forward);
+                Vector3 end = A - tan0 * mouthOffset;
                 float s = Mathf.SmoothStep(0f, 1f, t / Mathf.Max(0.01f, Telegraph));
                 body = Vector3.Lerp(From, end, s);
-                float deep = water - 3.5f;
+                float deep = Mathf.Min(water - 3.5f, end.y);
                 float rise = Mathf.InverseLerp(0.7f, 1f, s);
                 body.y = Mathf.Lerp(deep, end.y, rise * rise);
                 Vector3 travel = Flat(end - From, dirA);
-                rot = Quaternion.LookRotation(Vector3.Slerp(travel, dirA, s));
+                rot = Quaternion.Slerp(Quaternion.LookRotation(travel), Quaternion.LookRotation(tan0), rise);
                 submerged = rise < 0.3f;
                 return;
             }

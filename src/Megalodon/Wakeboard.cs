@@ -71,7 +71,7 @@ namespace Expanded.Megalodon
 
             Riding = true;
             MegaPatches.NoteRideStart();
-            PlayerHold.Begin("wakeboard", Step, PoseFor(_p, false, 0f));
+            PlayerHold.Begin("wakeboard", Step, PoseFor(_p, false, 0f), () => End("the ride broke", true));
 
             // Face the boat: that's where the rope is.
             try
@@ -345,16 +345,23 @@ namespace Expanded.Megalodon
             Spin = 0f;
             _spinTarget = 0f;
 
-            // Landed on its back? Then you're riding a megalodon now.
+            // Landed on its back? Ask the host - it has the megalodon, so it decides.
             if (Time.time > _rodeoCooldown && SharkVisual.CanRodeo(body + Vector3.down * FeetOffset))
             {
-                _rodeoUntil = Time.time + 4.5f;
-                _chargePlanted = false;
+                _rodeoCooldown = Time.time + 1.5f;
                 ModNet.SendToServer(Msg.Rodeo, w => w.Write((byte)0));
-                Shouts.Yell(MegaLines.Pick(MegaLines.Rodeo));
-                MegaFx.Banner("RODEO!  [F] plant a charge   [Space] jump off", new Color(1f, 0.85f, 0.3f), 2.5f);
-                ModSave.AddCounter("megalodon.rodeos", 1);
             }
+        }
+
+        /// <summary>The host says yes: you're riding a megalodon now.</summary>
+        internal static void ConfirmRodeo()
+        {
+            if (!Riding) return;
+            _rodeoUntil = Time.time + 4.5f;
+            _chargePlanted = false;
+            Shouts.Yell(MegaLines.Pick(MegaLines.Rodeo));
+            MegaFx.Banner("RODEO!  [F] plant a charge   [Space] jump off", new Color(1f, 0.85f, 0.3f), 2.5f);
+            ModSave.AddCounter("megalodon.rodeos", 1);
         }
 
         private static void EndRodeo(bool jumped)

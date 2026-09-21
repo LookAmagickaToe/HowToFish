@@ -382,6 +382,7 @@ namespace Expanded.Megalodon
 
             foreach (Hz h in Live.Values)
             {
+                if (h.Root == null) continue;   // torn down with the scene; LateTick will drop it
                 float age = now - h.Born;
                 switch (h.Kind)
                 {
@@ -389,7 +390,7 @@ namespace Expanded.Megalodon
                         for (int i = 0; i < h.Parts.Count; i++)
                         {
                             float t = age - h.Delays[i];
-                            if (t < 0f || h.Spent[i]) continue;
+                            if (t < 0f || h.Spent[i] || h.Parts[i] == null) continue;
                             Vector3 p = FishAt(h, i, t);
                             if ((p - chest).sqrMagnitude > 0.85f * 0.85f && (p - body).sqrMagnitude > 0.7f * 0.7f) continue;
                             h.Spent[i] = true;

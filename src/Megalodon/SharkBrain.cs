@@ -286,8 +286,21 @@ namespace Expanded.Megalodon
 
         private static void Chase(float dt, float now)
         {
+            if (_rodeoOwner >= 0)
+            {
+                // Someone is stood on its back, still holding the tow rope: it gets towed too.
+                Vector3 tow;
+                if (Tow.Point(out tow))
+                {
+                    Vector3 outward = Flat(_pos - tow);
+                    Vector3 end = tow + (outward.sqrMagnitude > 1f ? outward.normalized : -Tow.Forward()) * WakeRig.Rope;
+                    end.y = _pos.y;
+                    Steer(dt, end, Tow.Velocity());
+                    _pos.y = Mathf.Lerp(_pos.y, PirateModule.WaterY() - Cfg.SwimDepth.Value, dt * 2f);
+                }
+                return;
+            }
             float want = MegaRules.PreferredDistance(Tow.Speed(), MegaModule.SafeSpeed, Cfg.ChaseDistance.Value, Cfg.CloseDistance.Value);
-            if (_rodeoOwner >= 0) want = 0f;
             Follow(dt, want, 0f);
 
             if (_rider == null) return;
@@ -307,7 +320,7 @@ namespace Expanded.Megalodon
             }
             else _closeFor = 0f;
 
-            if (MaxHp > 0f && Hp / MaxHp <= 0.12f && now >= _finaleNotBefore) { StartFinale(); return; }
+            if (_rodeoOwner < 0 && MaxHp > 0f && Hp / MaxHp <= 0.12f && now >= _finaleNotBefore) { StartFinale(); return; }
 
             if (now >= _nextDecoyScan) { _nextDecoyScan = now + 0.7f; if (TryDecoy(now)) return; }
 
@@ -346,7 +359,10 @@ namespace Expanded.Megalodon
                 Vector3 mouth = Mouth() + Vector3.up * 1f;
                 Vector3 target = Tow.Centre() + Tow.Velocity() * 1.2f;
                 float g = Mathf.Max(0.1f, PirateModule.Cfg.CannonGravity.Value);
-                Cannonballs.Fire(mouth, Cannonballs.AimAt(mouth, target, 28f, g), true);
+                if (PirateModule.Instance != null && PirateModule.Instance.IsEnabled)
+                    Cannonballs.Fire(mouth, Cannonballs.AimAt(mouth, target, 28f, g), true);
+                else
+                    MegaBoom.Explode(target + Vector3.up * 0.5f, false, 0f, false);   // no cannonball flight without the Pirates module
                 Send(new SharkEvent { Kind = EvKind.Burp, A = mouth, B = target });
             }
         }
@@ -667,7 +683,7 @@ namespace Expanded.Megalodon
                     Vector3 bow, bf;
                     if (BoatMount.TryGetWorld(BoatMount.Slot.Bow, out bow, out bf) && Flat(ev.SnapPoint - bow).magnitude < 4.2f)
                         HitBoat(bow, (ev.B - ev.A).normalized, false);
-                    else DeckShout(MegaLines.FakeOut);
+                    else DeckShout(MegaLines.Pick(MegaLines.FakeOut));
                     break;
                 }
                 case EvKind.SternChomp:
@@ -683,7 +699,7 @@ namespace Expanded.Megalodon
                 case EvKind.JumpOver:
                     foreach (Player p in PlayersOnBoat())
                         try { p.Movement.RPCKnockback(p.Owner, Vector3.up * 4.5f); } catch { }
-                    DeckShout(MegaLines.JumpOver);
+                    DeckShout(MegaLines.Pick(MegaLines.JumpOver, MegaLines.JumpOverClean));
                     break;
             }
         }
@@ -720,11 +736,11 @@ namespace Expanded.Megalodon
             return list;
         }
 
-        private static void DeckShout(string[] pool)
+        private static void DeckShout(string line)
         {
             List<Player> aboard = PlayersOnBoat();
             if (aboard.Count == 0) return;
-            Shouts.HostBroadcast(aboard[UnityEngine.Random.Range(0, aboard.Count)], MegaLines.Pick(pool));
+            Shouts.HostBroadcast(aboard[UnityEngine.Random.Range(0, aboard.Count)], line);
         }
 
         // ------------------------------------------------------------------ what players did to it
@@ -796,10 +812,11 @@ namespace Expanded.Megalodon
         private static void HostRodeo(Player p, byte what)
         {
             if (!Active) return;
-            if (what == 0 && _rodeoOwner < 0 && p.OwnerId == WakeRig.RiderId && Mode == SharkMode.Chase)
+            if (what == 0 && _rodeoOwner < 0 && p.OwnerId == WakeRig.RiderId && (Mode == SharkMode.Chase || Mode == SharkMode.Stalk))
             {
                 _rodeoOwner = p.OwnerId;
                 _rodeoUntil = Time.time + 5f;
+                if (Mode == SharkMode.Stalk) SetMode(SharkMode.Chase);
                 Send(new SharkEvent { Kind = EvKind.RodeoStart, Extra = p.OwnerId });
                 MegaModule.Announce(p.SteamName + " is RIDING THE MEGALODON.");
             }
