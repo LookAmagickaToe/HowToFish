@@ -516,6 +516,54 @@ namespace SeagullSwarm
             }
 
             if (Time.time >= _nextGroupAt) LaunchDiveGroup();
+
+            // Gulls that fly in during the swarm (the game spawns its own) don't get to sit it out.
+            if (Time.time >= _nextConvertAt)
+            {
+                _nextConvertAt = Time.time + 2f;
+                int joined = ConvertNearbyGulls();
+                if (joined > 0) Diag.Info("Swarm: " + joined + " more gull(s) joined wave " + (_waveIndex + 1) + ".");
+            }
+        }
+
+        private float _nextConvertAt;
+        private const float ConvertRadius = 150f;
+
+        /// <summary>
+        /// Turns every living seagull near the players that is still flying the game's own way into an
+        /// attacker of the current wave. Without this, lured and wild gulls kept idling about while
+        /// the swarm's own birds attacked - it looked like half the flock couldn't be bothered.
+        /// </summary>
+        private int ConvertNearbyGulls()
+        {
+            if (_gullPrefab == null) return 0;
+            string prefabName = _gullPrefab.name;
+            int joined = 0;
+            try
+            {
+                foreach (Bird b in UnityEngine.Object.FindObjectsByType<Bird>())
+                {
+                    if (b == null || !b.isActiveAndEnabled) continue;
+                    if (b.GetComponent<GullAttacker>() != null) continue;
+                    if (!b.gameObject.name.StartsWith(prefabName, StringComparison.OrdinalIgnoreCase)) continue;
+                    if (b._hp.Value <= 0) continue;
+                    Vector3 d = b.transform.position - _anchor;
+                    d.y = 0f;
+                    if (d.magnitude > ConvertRadius) continue;
+
+                    GullAttacker attacker = b.gameObject.AddComponent<GullAttacker>();
+                    attacker.Bind(this, b);
+                    _birds.Add(attacker);
+                    Item item = b.GetComponent<Item>();
+                    if (item != null) _lured.Remove(item);
+                    joined++;
+                }
+            }
+            catch (Exception e)
+            {
+                Diag.Exception("ConvertNearbyGulls", e);
+            }
+            return joined;
         }
 
         private void ReapDeadBirds()
@@ -733,6 +781,10 @@ namespace SeagullSwarm
             }
 
             _arrivalScreamPending = cfg.ScreamOnArrival.Value;
+
+            // Every other gull around joins in: the ones lured in for the quests and the game's own.
+            int joined = ConvertNearbyGulls();
+            if (joined > 0) Diag.Info("Wave " + (index + 1) + ": " + joined + " gull(s) already about joined the swarm.");
 
             // First dives only once the flock has had time to arrive.
             _nextGroupAt = Time.time + cfg.ApproachDistance.Value / Mathf.Max(1f, cfg.ApproachSpeed.Value) * 0.6f;
