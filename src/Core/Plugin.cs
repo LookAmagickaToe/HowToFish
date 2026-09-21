@@ -78,6 +78,7 @@ namespace Expanded
             Modules.Add(new Expanded.Pirates.PirateModule());
             Modules.Add(new Expanded.Npcs.NpcModule());
             Modules.Add(new AssetsModule());
+            Modules.Add(new ArmoryModule());
         }
 
         private void ConfigureModules()
