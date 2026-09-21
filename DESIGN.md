@@ -20,9 +20,10 @@ Three rules the content follows:
 Pirates and sunken treasure, in three acts across the existing islands.
 
 **Act 1 — "Colours at Dawn"** *(implemented; see `src/Content/PirateStory.cs`)*
-The gulls turn on you. Beating the swarm reveals an oilcloth chart tangled round the albatross's
-leg. Someone else wants that chart, and they have cannons.
-Reward: **the pirate ship and your first cannon.**
+The gulls turn on you, wave after wave. Something falls out of the beaten flock: an oilcloth chart.
+Someone else wants that chart, and they have cannons. (No albatross: the game has its own, and
+using it here would give that away.)
+Reward: **the pirate ship** (the cannon is bought in the shop).
 
 **Act 2 — "The Salvage War"** *(designed)*
 The chart marks three wrecks. Each is a dive site guarded by something: a shark that has claimed it,

@@ -24,6 +24,9 @@ namespace SeagullSwarm
         public readonly ConfigEntry<int> WaveCount;
         public readonly ConfigEntry<int> FirstWaveSize;
         public readonly ConfigEntry<float> WaveGrowth;
+        public readonly ConfigEntry<float> WaveTimeBaseSeconds;
+        public readonly ConfigEntry<float> WaveTimePerBirdSeconds;
+        public readonly ConfigEntry<float> WaveBreakSeconds;
 
         // --- Approach ------------------------------------------------------
         public readonly ConfigEntry<float> ApproachDistance;
@@ -74,12 +77,7 @@ namespace SeagullSwarm
         public readonly ConfigEntry<int> GroupSizeStart;
         public readonly ConfigEntry<int> GroupSizeEnd;
 
-        // --- Leader --------------------------------------------------------
-        public readonly ConfigEntry<bool> SpawnLeader;
-        public readonly ConfigEntry<int> LeaderHp;
-        public readonly ConfigEntry<bool> LeaderHpScalesWithPlayers;
-        public readonly ConfigEntry<bool> LeaderDeathEndsSwarm;
-        public readonly ConfigEntry<float> LeaderSpawnHeight;
+        // --- Ending ----------------------------------------------------------
         public readonly ConfigEntry<float> FleeSeconds;
 
         // --- Testing -------------------------------------------------------
@@ -110,9 +108,16 @@ namespace SeagullSwarm
             LureIntervalSeconds = c.Bind("Lure", "IntervalSeconds", 15f, "How often more gulls arrive, in seconds.");
 
             WaveCount = c.Bind("Waves", "WaveCount", 5, "Number of waves in a full encounter.");
-            FirstWaveSize = c.Bind("Waves", "FirstWaveSize", 10, "Birds in wave 1.");
+            // Pure gull waves, Zombies-style: survive every wave to win. (Keys renamed from the
+            // Albatross version so the new defaults apply to existing config files.)
+            FirstWaveSize = c.Bind("Waves", "BirdsInWave1", 15, "Birds in wave 1.");
             WaveGrowth = c.Bind("Waves", "Growth", 1.3f,
-                "Per-wave multiplier. 10 x 1.3^(n-1) gives 10 / 13 / 17 / 22 / 29 = 91 birds.");
+                "Per-wave multiplier. 15 x 1.3^(n-1) gives 15 / 20 / 25 / 33 / 43 = 136 birds.");
+            WaveTimeBaseSeconds = c.Bind("Waves", "TimeLimitBaseSeconds", 45f,
+                "Each wave must be cleared in time: this many seconds...");
+            WaveTimePerBirdSeconds = c.Bind("Waves", "TimeLimitPerBirdSeconds", 2.5f,
+                "...plus this many per bird in the wave. When it runs out the flock leaves and the swarm is lost.");
+            WaveBreakSeconds = c.Bind("Waves", "BreakSeconds", 6f, "Breather between waves.");
 
             ApproachDistance = c.Bind("Approach", "Distance", 120f,
                 "How far out each wave appears. The whole wave comes from one compass direction.");
@@ -170,26 +175,15 @@ namespace SeagullSwarm
             ContactKnockback = c.Bind("Damage", "Knockback", 2.5f,
                 "Force imparted along the dive direction. Only matters if the hit is lethal.");
 
-            GroupIntervalStart = c.Bind("Pacing", "GroupIntervalWave1", 4.5f,
+            GroupIntervalStart = c.Bind("Pacing", "DiveIntervalWave1", 3f,
                 "Seconds between dive groups during wave 1.");
-            GroupIntervalEnd = c.Bind("Pacing", "GroupIntervalFinalWave", 1.6f,
+            GroupIntervalEnd = c.Bind("Pacing", "DiveIntervalFinalWave", 1.4f,
                 "Seconds between dive groups during the final wave. Interpolated in between.");
-            GroupSizeStart = c.Bind("Pacing", "GroupSizeWave1", 2, "Birds diving together in wave 1.");
-            GroupSizeEnd = c.Bind("Pacing", "GroupSizeFinalWave", 6,
+            GroupSizeStart = c.Bind("Pacing", "DiveGroupWave1", 3, "Birds diving together in wave 1.");
+            GroupSizeEnd = c.Bind("Pacing", "DiveGroupFinalWave", 7,
                 "Birds diving together in the final wave. Interpolated in between.");
 
-            SpawnLeader = c.Bind("Leader", "Spawn", true,
-                "Spawn an Albatross as flock leader. It is a real, killable boss with the game's boss bar " +
-                "and timer; kill it for its trophy and meat.");
-            LeaderHp = c.Bind("Leader", "Hp", 500,
-                "Albatross health for a solo player. The unmodded boss has 7800.");
-            LeaderHpScalesWithPlayers = c.Bind("Leader", "HpScalesWithPlayers", true,
-                "Add the game's usual bonus health per extra player (+50% of base each).");
-            LeaderDeathEndsSwarm = c.Bind("Leader", "DeathEndsSwarm", true,
-                "Killing the Albatross wins the encounter immediately and the gulls flee. If false, the " +
-                "remaining waves must still be cleared.");
-            LeaderSpawnHeight = c.Bind("Leader", "SpawnHeight", 34f, "Height above the anchor the leader appears at.");
-            FleeSeconds = c.Bind("Leader", "FleeSeconds", 8f,
+            FleeSeconds = c.Bind("Ending", "FleeSeconds", 8f,
                 "When the encounter ends, surviving gulls fly away for this long before being removed.");
 
             HotkeysEnabled = c.Bind("Testing", "HotkeysEnabled", false,

@@ -23,17 +23,23 @@ registration order.
 | **F4** | Pirates: send in or remove the pirate ship; Shift+F4 knocks a quarter off her hull (host) |
 | **F5** | Model preview: cycle through every kit model |
 | **F6** | Characters: log where every story character is standing |
+| **F7** | Drop a test weapon (pistol) in front of you (host) |
 
 ## The story (Act 1)
 
+Story characters work like the game's own NPCs: look at them, press **E** ("Talk"), and press **E**
+again to click through what they say in the speech bubble. Listening to a job is taking it on.
+Things they ask for are fed to them - throw or drop the item at them.
+
 1. **Old Salt** waits at the landing of whatever island you're on. Look for the **!** over his head.
-2. *Bad Omens* - kill three seagulls. The rest go quiet, which is worse.
-3. *The Flock Breaks* - keep hunting gulls until the swarm arrives, then kill the Albatross.
-   It was carrying a chart.
-4. **Anne** appears. *Colours at Dawn* - put to sea. A pirate ship, the *Salted Widow*, comes for
-   the chart. A swivel gun is mounted on your bow for the fight.
-5. Sink her with the bow gun, dynamite and gunfire. You keep the gun, your boat gets the pirate
-   refit (mast, colours and a stern gun), and **Mako** the shipwright turns up.
+2. *Bad Omens* - kill three seagulls and feed them to him (1/3, 2/3, 3/3).
+3. *The Flock Breaks* - kill five gulls inside three minutes to call the swarm, then survive every
+   wave (Zombies-style: each bigger than the last, each with a time limit). Something falls out of
+   the last flock: a chart.
+4. **Anne** appears. *Colours at Dawn* - buy a swivel gun in the shop (next to the motors), sail to
+   the buoy the chart marks, and deal with the pirate ship, the *Salted Widow*, waiting there.
+5. Sink her, or shoot her captain so she strikes her colours. The *Widow* is yours to sail, and
+   **Mako** the shipwright turns up (talk to him twice to swap hulls back and forth).
 6. Rich crews at sea get raided by pirates from then on.
 
 ## Your saves are safe

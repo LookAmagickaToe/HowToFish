@@ -3,7 +3,7 @@ using Expanded.Quests;
 namespace Expanded.Content
 {
     /// <summary>
-    /// Act 1 of the pirate storyline: the gulls turn, a chart turns up on an albatross, and someone
+    /// Act 1 of the pirate storyline: the gulls turn, a chart falls out of the beaten flock, and someone
     /// else wants it badly enough to bring cannons.
     ///
     /// Content rules:
@@ -72,18 +72,18 @@ namespace Expanded.Content
                 Title = "The Flock Breaks",
                 Giver = StoryNpcs.OldSalt,
                 Summary = "They came back with a leader. Break the flock.",
-                OfferText = "When gulls go quiet it means they're fetching someone bigger.\n" +
+                OfferText = "When gulls go quiet it means they're gathering. All of them.\n" +
                             "Kill five of 'em quick - inside three minutes - and the whole flock comes for you.\n" +
-                            "Leading them: an albatross. Big bird. Bigger opinion of himself.\n" +
-                            "Shoot him down and the rest scatter. Then bring me whatever he's carrying.",
+                            "They come in waves, each bigger than the last, and each one's got to be broken before it gives up on you.\n" +
+                            "Last all the waves and they're done. Go down, or take too long, and they just leave. Laughing.",
                 ActiveText = "Five gulls inside three minutes. That's what calls the flock.\n" +
-                             "When they come, go for the albatross - the one with the health bar. Kill him and it's over.",
-                DoneText = "An oilcloth chart, tied to his leg. Birds don't tie knots. Someone sent it."
+                             "Then break every wave before its time runs out. Watch the bar at the top.",
+                DoneText = "Something fell out of that last flock. An oilcloth chart. Gulls don't carry charts. Someone sent them."
             };
             q.Requires.Add(FlagOmens);
-            q.Steps.Add(new QuestStep("Kill 5 gulls within 3 minutes to call the swarm, then kill the Albatross",
+            q.Steps.Add(new QuestStep("Kill 5 gulls within 3 minutes to call the swarm, then survive all its waves",
                                       Objective.Flag(FlagSwarmDefeated),
-                                      "Something was tangled round the albatross's leg: an oilcloth chart."));
+                                      "The last gull dropped something as it fell: an oilcloth chart."));
             q.Rewards.Add(Reward.Money(400));
             q.Rewards.Add(Reward.Flag(FlagChart));
             q.Rewards.Add(Reward.Flag(FlagFlock));

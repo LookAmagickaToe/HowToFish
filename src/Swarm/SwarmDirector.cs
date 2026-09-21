@@ -12,11 +12,11 @@ namespace SeagullSwarm
     /// Host-side brain for the whole encounter. Attached to the BirdManager GameObject by a
     /// Harmony patch on OnStartServer, so it only ever exists on the server.
     ///
-    /// Counts provocation kills, runs the five waves, and spawns an Albatross as a real, killable
-    /// flock leader. The Albatross owns the vanilla boss bar and timer:
-    ///   kill it            -> victory, the game drops its trophy and meat, the gulls flee
-    ///   clear all waves    -> only the Albatross remains; kill it to win
-    ///   timer runs out     -> it flies off, the gulls scatter, no loot
+    /// Counts provocation kills and runs the waves, Zombies-style - gulls only, no boss:
+    ///   clear every wave             -> victory
+    ///   a wave's time limit runs out -> the flock flies off, no victory
+    ///   everyone is down             -> the flock flies off, no victory
+    /// Each wave is bigger than the last (Waves.Growth), with a short breather in between.
     /// </summary>
     internal class SwarmDirector : MonoBehaviour
     {
@@ -32,14 +32,11 @@ namespace SeagullSwarm
         private Vector3 _anchor;
         internal Vector3 Anchor { get { return _anchor; } }
 
-        private BossManager _bossManager;
-        private Creature _leader;
-        private bool _leaderInPlay;
-        private int _leaderLastHp;
-        private int _leaderMaxHp;
-        private float _summonDeadline;
-
         private int[] _waveSizes;
+        private float _waveDeadline;
+        private bool _inBreak;
+        private float _breakUntil;
+        private float _nextHudAt;
         private int _waveIndex;
         private bool _wavesDone;
         private int _totalPlanned;
@@ -52,14 +49,12 @@ namespace SeagullSwarm
         private readonly List<KeyValuePair<GullAttacker, float>> _fleeing = new List<KeyValuePair<GullAttacker, float>>();
 
         private Item _gullPrefab;
-        private Item _leaderPrefab;
 
         private float _attachedAt;
         private bool _autoStartFired;
 
         // --- diagnostics ---
         private float _encounterStartedAt;
-        private float _summonStartedAt;
         private float _waveStartedAt;
         private float _nextStatusAt;
         private float _lastGroupAt;
@@ -70,21 +65,14 @@ namespace SeagullSwarm
         private bool InEncounter { get { return _phase == Phase.Summoning || _phase == Phase.Running; } }
         internal bool InEncounterPublic { get { return InEncounter; } }
 
-        /// <summary>True while our Albatross owns the vanilla boss bar.</summary>
-        internal bool OwnsBossBar
-        {
-            get { return InEncounter && _leader != null && BossManager.Boss == _leader; }
-        }
+        /// <summary>The swarm no longer has a boss; the game's boss bar is always left to the game.</summary>
+        internal bool OwnsBossBar => false;
 
         private void Awake()
         {
             Active = this;
-            _bossManager = FindAnyObjectByType<BossManager>();
             _anchor = transform.position;
             _attachedAt = Time.time;
-
-            if (_bossManager == null)
-                Diag.Warn("BossManager not found in this scene - the boss bar will not work here.");
         }
 
         private void OnDestroy()
@@ -173,10 +161,6 @@ namespace SeagullSwarm
                     }
                     break;
 
-                case Phase.Summoning:
-                    TickSummoning();
-                    break;
-
                 case Phase.Running:
                     TickRunning();
                     break;
@@ -197,6 +181,50 @@ namespace SeagullSwarm
                 _nextStatusAt = Time.time + interval;
                 LogStatus();
             }
+
+            if (InEncounter && Time.time >= _nextHudAt)
+            {
+                _nextHudAt = Time.time + 0.5f;
+                SendHud();
+            }
+        }
+
+        // ------------------------------------------------------------------ HUD (every player)
+
+        /// <summary>Wave, gulls left and time left, for the swarm bar on every player's screen.</summary>
+        private void SendHud()
+        {
+            bool active = _phase == Phase.Running;
+            int wave = _waveIndex + 1;
+            int waves = _waveSizes != null ? _waveSizes.Length : 0;
+            int left = _birds.Count;
+            bool rest = _inBreak;
+            float seconds = Mathf.Max(0f, (rest ? _breakUntil : _waveDeadline) - Time.time);
+            ModNet.SendToAll(Msg.SwarmStatus, w =>
+            {
+                w.Write(active);
+                w.Write((byte)Mathf.Clamp(wave, 0, 255));
+                w.Write((byte)Mathf.Clamp(waves, 0, 255));
+                w.Write((ushort)Mathf.Clamp(left, 0, 65535));
+                w.Write(seconds);
+                w.Write(rest);
+            });
+        }
+
+        private static void SendHudClosed()
+        {
+            ModNet.SendToAll(Msg.SwarmStatus, w =>
+            {
+                w.Write(false); w.Write((byte)0); w.Write((byte)0); w.Write((ushort)0); w.Write(0f); w.Write(false);
+            });
+        }
+
+        /// <summary>A line in the middle of every player's screen, plus the host's chat log.</summary>
+        private static void Banner(string text)
+        {
+            Say(text);
+            try { Expanded.Pirates.PirateModule.Announce(text); }
+            catch (Exception e) { Diag.Exception("Swarm banner", e); }
         }
 
         private void UpdateAnchor()
@@ -252,21 +280,9 @@ namespace SeagullSwarm
             }
             if (lowest == float.MaxValue) lowest = 0f;
 
-            string boss;
-            if (BossManager.Boss == null) boss = "none";
-            else if (_leader != null && BossManager.Boss == _leader) boss = "ours";
-            else boss = "OTHER(" + BossManager.Boss.name + ")";
-
-            string leaderHp = _leaderInPlay ? _leaderLastHp + "/" + _leaderMaxHp : "n/a";
-
-            string timeLeft = "n/a";
-            if (BossManager.Boss != null && InstanceFinder.TimeManager != null)
-            {
-                uint tick = InstanceFinder.TimeManager.Tick;
-                uint leaves = BossManager.BossLeavesTick;
-                float rate = (int)InstanceFinder.TimeManager.TickRate;
-                timeLeft = (leaves > tick ? (leaves - tick) / rate : 0f).ToString("0") + "s";
-            }
+            string timeLeft = _inBreak
+                ? "break " + Mathf.Max(0f, _breakUntil - Time.time).ToString("0") + "s"
+                : Mathf.Max(0f, _waveDeadline - Time.time).ToString("0") + "s";
 
             float sinceGroup = _lastGroupAt > 0f ? Time.time - _lastGroupAt : -1f;
             float waterRel = GullAttacker.WaterY() - _anchor.y;
@@ -279,7 +295,7 @@ namespace SeagullSwarm
                       (missing > 0 ? ", NULL " + missing : "") + "]" +
                       " | fleeing " + _fleeing.Count +
                       " | removed " + _removedTotal + "/" + _totalPlanned +
-                      " | albatross " + leaderHp + " | boss " + boss + " | time left " + timeLeft +
+                      " | time left " + timeLeft +
                       " | players " + PlayerManager.AlivePlayers.Count + "/" + PlayerManager.Players.Count +
                       " | dives " + _totalDives + " hits " + _totalHits + " crashes " + _totalCrashes +
                       " | last group " + (sinceGroup < 0 ? "never" : sinceGroup.ToString("0.0") + "s ago") +
@@ -347,12 +363,10 @@ namespace SeagullSwarm
             {
                 case Phase.Idle:
                     return "idle (" + _provokeKills.Count + "/" + SwarmModule.Cfg.KillsToProvoke.Value + " kills)";
-                case Phase.Summoning:
-                    return "summoning the Albatross";
                 case Phase.Running:
                     return "wave " + (_waveIndex + 1) + "/" + (_waveSizes != null ? _waveSizes.Length : 0) +
-                           ", " + _birds.Count + " birds, albatross " +
-                           (_leaderInPlay ? _leaderLastHp + "/" + _leaderMaxHp : "n/a");
+                           (_inBreak ? ", break" : ", " + _birds.Count + " birds, " +
+                            Mathf.Max(0f, _waveDeadline - Time.time).ToString("0") + "s left");
                 case Phase.Cooldown:
                     return "cooldown " + Mathf.Max(0f, _cooldownUntil - Time.time).ToString("0") + "s";
                 default:
@@ -391,16 +405,6 @@ namespace SeagullSwarm
                 return;
             }
             Say("Encounter stopped.");
-
-            // Send the Albatross away through the same path the vanilla timer uses: no death, no loot.
-            if (_leader != null && _leader._hp.Value > 0)
-            {
-                try { _leader.DestroyItem((byte)DestroyReason.Default); }
-                catch (Exception e) { Diag.Exception("ForceStop leader", e); }
-            }
-            _leader = null;
-            _leaderInPlay = false;
-
             EndEncounter("Stopped by hotkey");
             _cooldownUntil = Time.time; // manual stop: allow an immediate restart
         }
@@ -427,8 +431,7 @@ namespace SeagullSwarm
             _warnedFar = _warnedStall = false;
             _nextStatusAt = 0f;
             _wavesDone = false;
-            _leader = null;
-            _leaderInPlay = false;
+            _inBreak = false;
             _lastWaveAngle = float.NaN;
 
             if (!ResolvePrefabs())
@@ -444,115 +447,38 @@ namespace SeagullSwarm
             _removedTotal = 0;
             _birds.Clear();
 
-            Say("The flock has had enough. " + _waveSizes.Length + " waves, " + _totalPlanned + " birds.");
+            Banner("The flock has had enough! " + _waveSizes.Length + " waves - survive them all.");
             Diag.Info("Wave plan: " + string.Join(" / ", _waveSizes) + " = " + _totalPlanned +
                       ". Players: " + PlayerManager.AlivePlayers.Count + " alive of " + PlayerManager.Players.Count +
                       ". Anchor " + _anchor.ToString("F1") + ", water " + GullAttacker.WaterY().ToString("0.0") + ".");
 
-            if (!cfg.SpawnLeader.Value)
-            {
-                Diag.Info("Leader disabled in config - no boss bar.");
-            }
-            else if (_leaderPrefab == null)
-            {
-                Diag.Warn("Albatross prefab not found - running without leader or boss bar.");
-            }
-            else if (BossManager.Boss != null)
-            {
-                Diag.Warn("A vanilla boss is already active (" + BossManager.Boss.name +
-                          ") - leader skipped this time.");
-            }
-            else
-            {
-                Vector3 pos = _anchor + Vector3.up * cfg.LeaderSpawnHeight.Value;
-                Item leader = ItemManager.Instance.SpawnNewItem(_leaderPrefab, pos, Quaternion.identity);
-                _leader = leader != null ? leader.GetComponent<Creature>() : null;
-
-                if (_leader == null)
-                {
-                    Diag.Error("Leader spawn returned nothing - running without it.");
-                }
-                else
-                {
-                    Diag.Info("Leader '" + _leader.name + "' spawned at " + pos.ToString("F1") +
-                              ", waiting for it to take the boss bar...");
-                    _summonStartedAt = Time.time;
-                    _summonDeadline = Time.time + 5f;
-                    _phase = Phase.Summoning;
-                    return;
-                }
-            }
-
-            // No leader (disabled, missing, or a vanilla boss already owns the bar): run bare.
-            _leader = null;
-            BeginWaves();
-        }
-
-        private void TickSummoning()
-        {
-            // Creature.OnStartClient is what assigns BossManager.Boss, so wait for it to land
-            // before touching the bar.
-            if (_leader != null && BossManager.Boss == _leader)
-            {
-                Diag.Info("Leader took the boss bar after " + (Time.time - _summonStartedAt).ToString("0.00") + "s.");
-                ConfigureLeader();
-                BeginWaves();
-                return;
-            }
-
-            if (Time.time >= _summonDeadline)
-            {
-                Diag.Warn("Leader never took over the boss bar within 5s (BossManager.Boss = " +
-                          (BossManager.Boss == null ? "null" : BossManager.Boss.name) +
-                          ", leader " + (_leader == null ? "destroyed" : "alive") + "); running without it.");
-                Say("Albatross unavailable - running the waves without it.");
-                _leader = null;
-                BeginWaves();
-            }
-        }
-
-        private void ConfigureLeader()
-        {
-            SwarmConfig cfg = SwarmModule.Cfg;
-
-            if (_bossManager == null) _bossManager = FindAnyObjectByType<BossManager>();
-            if (_bossManager == null || _leader == null)
-            {
-                Diag.Error("Cannot configure leader: BossManager " + (_bossManager == null ? "missing" : "ok") +
-                           ", leader " + (_leader == null ? "missing" : "ok") + ".");
-                return;
-            }
-
-            int baseHp = Mathf.Max(1, cfg.LeaderHp.Value);
-            _leaderMaxHp = cfg.LeaderHpScalesWithPlayers.Value
-                ? BossManager.GetBossMaxHp(baseHp, _leader.BossHpMultiplier)
-                : baseHp;
-
-            // Max first, then HP, so each client's bar computes hp/max against the new maximum.
-            _bossManager._bossMaxHp.Value = _leaderMaxHp;
-            _leader._hp.Value = _leaderMaxHp;
-            _leaderLastHp = _leaderMaxHp;
-            _leaderInPlay = true;
-
-            Diag.Info("Albatross ready: " + _leaderMaxHp + " HP (base " + baseHp + ", " +
-                      PlayerManager.Players.Count + " player(s)), timer " + _leader.BossTimeInSeconds +
-                      "s, immortal " + BossManager.IsImmortal + ".");
-            Say("The Albatross leads them - " + _leaderMaxHp + " HP. Kill it to break the flock!");
-        }
-
-        private void BeginWaves()
-        {
             _phase = Phase.Running;
             StartWave(0);
         }
 
+        /// <summary>
+        /// Zombies-style: clear a wave within its time limit, catch your breath, next wave. Clear the
+        /// last one and the swarm is beaten. Run out of time, or have everyone go down, and the flock
+        /// simply leaves - no victory.
+        /// </summary>
         private void TickRunning()
         {
             SwarmConfig cfg = SwarmModule.Cfg;
 
-            if (_leaderInPlay && HandleLeaderState(cfg)) return;
+            if (PlayerManager.Players.Count > 0 && PlayerManager.AlivePlayers.Count == 0)
+            {
+                Banner("Everyone's down - the flock loses interest and leaves.");
+                EndEncounter("Defeat: party wiped in wave " + (_waveIndex + 1));
+                return;
+            }
 
-            if (_wavesDone) return; // only the Albatross is left; nothing else to run
+            if (_inBreak)
+            {
+                if (Time.time < _breakUntil) return;
+                _inBreak = false;
+                StartWave(_waveIndex);
+                return;
+            }
 
             ReapDeadBirds();
 
@@ -564,52 +490,14 @@ namespace SeagullSwarm
                 return;
             }
 
+            if (Time.time >= _waveDeadline)
+            {
+                Banner("Time's up - wave " + (_waveIndex + 1) + " wasn't broken. The flock flies off.");
+                EndEncounter("Defeat: wave " + (_waveIndex + 1) + " timer ran out with " + _birds.Count + " birds left");
+                return;
+            }
+
             if (Time.time >= _nextGroupAt) LaunchDiveGroup();
-        }
-
-        /// <summary>Returns true if the encounter ended this frame.</summary>
-        private bool HandleLeaderState(SwarmConfig cfg)
-        {
-            // Unity's null check turns true once the object is destroyed, so keep the last HP we saw
-            // to tell "killed" (HP 0) from "left" (timer, stop, party wiped).
-            if (_leader != null) _leaderLastHp = _leader._hp.Value;
-            bool gone = _leader == null || BossManager.Boss != _leader;
-
-            if (_leaderLastHp <= 0)
-            {
-                _leaderInPlay = false;
-                _leader = null;
-
-                Diag.Info("Albatross slain after " + (Time.time - _encounterStartedAt).ToString("0") +
-                          "s, in wave " + (_waveIndex + 1) + (_wavesDone ? " (all waves cleared)" : "") + ".");
-
-                if (cfg.LeaderDeathEndsSwarm.Value || _wavesDone)
-                {
-                    Say("The Albatross is dead - the flock breaks and flees!");
-                    RaiseStoryVictory();
-                    EndEncounter("Victory: Albatross slain");
-                    return true;
-                }
-
-                Say("The Albatross is dead! Finish off the remaining gulls.");
-                return false;
-            }
-
-            if (gone)
-            {
-                _leaderInPlay = false;
-                _leader = null;
-
-                if (PlayerManager.AlivePlayers.Count == 0)
-                    Say("Everyone died - the flock scatters.");
-                else
-                    Say("Time's up - the Albatross flies off and the flock scatters.");
-
-                EndEncounter("Defeat: Albatross left (" + (PlayerManager.AlivePlayers.Count == 0 ? "party wiped" : "timer") + ")");
-                return true;
-            }
-
-            return false;
         }
 
         private void ReapDeadBirds()
@@ -640,20 +528,16 @@ namespace SeagullSwarm
             _waveIndex++;
             if (_waveIndex < _waveSizes.Length)
             {
-                StartWave(_waveIndex);
+                float rest = Mathf.Max(0f, SwarmModule.Cfg.WaveBreakSeconds.Value);
+                Banner("Wave " + _waveIndex + " broken! Wave " + (_waveIndex + 1) + " of " + _waveSizes.Length +
+                       " in " + rest.ToString("0") + "s...");
+                _inBreak = true;
+                _breakUntil = Time.time + rest;
                 return;
             }
 
             _waveIndex = _waveSizes.Length - 1;
-
-            if (_leaderInPlay)
-            {
-                _wavesDone = true;
-                Say("All waves cleared - only the Albatross remains!");
-                return;
-            }
-
-            Say("Swarm defeated!");
+            Banner("The swarm is broken! Every wave beaten.");
             RaiseStoryVictory();
             EndEncounter("Victory: all waves cleared");
         }
@@ -677,6 +561,7 @@ namespace SeagullSwarm
 
             FleeAll();
             EnterCooldown();
+            SendHudClosed();
         }
 
         private void EnterCooldown()
@@ -684,6 +569,7 @@ namespace SeagullSwarm
             _birds.Clear();
             _provokeKills.Clear();
             _wavesDone = false;
+            _inBreak = false;
             _arrivalScreamPending = false;
             _cooldownUntil = Time.time + SwarmModule.Cfg.RetriggerCooldownSeconds.Value;
             _phase = Phase.Cooldown;
@@ -785,10 +671,12 @@ namespace SeagullSwarm
             Vector3 center = _anchor + dir * cfg.ApproachDistance.Value;
             center.y = Mathf.Max(waterY, _anchor.y - 2f) + cfg.ApproachHeight.Value;
 
-            Say("Wave " + (index + 1) + "/" + _waveSizes.Length + ": " + _waveSizes[index] +
-                " birds incoming from " + RelativeDirection(center) + "!");
-
             int n = _waveSizes[index];
+            float limit = cfg.WaveTimeBaseSeconds.Value + cfg.WaveTimePerBirdSeconds.Value * n;
+            _waveDeadline = Time.time + Mathf.Max(15f, limit);
+
+            Banner("Wave " + (index + 1) + "/" + _waveSizes.Length + ": " + n + " gulls from " +
+                   RelativeDirection(center) + "! " + Mathf.RoundToInt(limit) + "s to break them.");
             int ok = 0;
             float spread = cfg.ApproachSpread.Value;
 
@@ -1074,10 +962,7 @@ namespace SeagullSwarm
         private bool ResolvePrefabs()
         {
             if (_gullPrefab == null) _gullPrefab = FindPrefabWith<Bird>("seagull");
-            if (_leaderPrefab == null) _leaderPrefab = FindPrefabWith<Albatross>("albatross");
-
-            Diag.Info("Prefabs: seagull " + (_gullPrefab != null ? "'" + _gullPrefab.name + "'" : "MISSING") +
-                      ", albatross " + (_leaderPrefab != null ? "'" + _leaderPrefab.name + "'" : "MISSING") + ".");
+            Diag.Info("Prefabs: seagull " + (_gullPrefab != null ? "'" + _gullPrefab.name + "'" : "MISSING") + ".");
             return _gullPrefab != null;
         }
 

@@ -7,7 +7,7 @@ using UnityEngine;
 namespace Expanded.Pirates
 {
     /// <summary>
-    /// The spot the albatross's chart marks: a buoy with a pirate flag, a couple of hundred metres
+    /// The spot the gulls' chart marks: a buoy with a pirate flag, a couple of hundred metres
     /// off the island, with an on-screen marker and distance so the player always knows where to go.
     ///
     /// It gives the finale a destination instead of "sail somewhere and wait". The host picks the spot
