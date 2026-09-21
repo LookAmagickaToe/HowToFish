@@ -19,6 +19,7 @@ namespace SeagullSwarm
         public readonly ConfigEntry<bool> LureEnabled;
         public readonly ConfigEntry<int> LureMaxGulls;
         public readonly ConfigEntry<float> LureIntervalSeconds;
+        public readonly ConfigEntry<float> LureRadius;
 
         // --- Waves ---------------------------------------------------------
         public readonly ConfigEntry<int> WaveCount;
@@ -104,8 +105,12 @@ namespace SeagullSwarm
             LureEnabled = c.Bind("Lure", "Enabled", true,
                 "While a story quest needs seagulls, ordinary gulls keep turning up near the players so " +
                 "there is always something to shoot.");
-            LureMaxGulls = c.Bind("Lure", "MaxGulls", 7, "How many extra gulls may be around at once.");
-            LureIntervalSeconds = c.Bind("Lure", "IntervalSeconds", 15f, "How often more gulls arrive, in seconds.");
+            LureMaxGulls = c.Bind("Lure", "MaxNearby", 10, "How many extra gulls may be near the players at once.");
+            LureIntervalSeconds = c.Bind("Lure", "EverySeconds", 10f,
+                "How often more gulls fly in (up to 4 at a time). At the defaults far more than the 5 kills the " +
+                "swarm needs turn up within its 3-minute window.");
+            LureRadius = c.Bind("Lure", "NearbyRadius", 70f,
+                "Only gulls this close count as 'around'; ones that wander further off are cleared away and replaced.");
 
             WaveCount = c.Bind("Waves", "WaveCount", 5, "Number of waves in a full encounter.");
             // Pure gull waves, Zombies-style: survive every wave to win. (Keys renamed from the

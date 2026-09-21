@@ -789,10 +789,26 @@ namespace SeagullSwarm
             if (_gullPrefab == null && !ResolvePrefabs()) return;
             if (_anchor == Vector3.zero) return;
 
-            _lured.RemoveAll(i => i == null || i.IsDestroying || i.IsDeinitializing ||
-                                  (i.Creature != null && i.Creature.IsDead));
-            int room = Mathf.Max(0, cfg.LureMaxGulls.Value) - _lured.Count;
-            int n = Mathf.Min(3, room);
+            // Only gulls near the players count. Wild gulls wander off; those that do are cleared away
+            // so they stop taking a place, and fresh ones fly in instead.
+            float radius = Mathf.Max(20f, cfg.LureRadius.Value);
+            int nearby = 0;
+            var strays = new List<Item>();
+            for (int i = _lured.Count - 1; i >= 0; i--)
+            {
+                Item g = _lured[i];
+                if (g == null || g.IsDestroying || g.IsDeinitializing || (g.Creature != null && g.Creature.IsDead))
+                { _lured.RemoveAt(i); continue; }
+                Vector3 d = g.transform.position - _anchor; d.y = 0f;
+                if (d.magnitude <= radius) { nearby++; continue; }
+                if (d.magnitude > radius * 1.6f) { strays.Add(g); _lured.RemoveAt(i); }
+            }
+            foreach (Item g in strays)
+            {
+                try { g.DestroyItem((byte)DestroyReason.Immediate); } catch (Exception e) { Diag.Exception("Lure: clear stray", e); }
+            }
+
+            int n = Mathf.Min(4, Mathf.Max(0, cfg.LureMaxGulls.Value) - nearby);
             if (n <= 0) return;
 
             float water = 0f;
@@ -819,15 +835,22 @@ namespace SeagullSwarm
                     break;
                 }
             }
-            if (ok > 0) Diag.Info("Lure: " + ok + " gull(s) flew in (" + _lured.Count + " around) for the story.");
+            if (ok > 0) Diag.Info("Lure: " + ok + " gull(s) flew in (" + (nearby + ok) + " nearby" +
+                                  (strays.Count > 0 ? ", " + strays.Count + " stray(s) cleared" : "") + ").");
         }
 
         private static bool QuestWantsGulls()
         {
             Expanded.Quests.QuestEngine e = Expanded.Quests.QuestModule.Instance?.Engine;
             if (e == null) return false;
-            return e.Progress(Expanded.Content.PirateStory.QuestOmens).Status == Expanded.Quests.QuestStatus.Active ||
-                   e.Progress(Expanded.Content.PirateStory.QuestFlock).Status == Expanded.Quests.QuestStatus.Active;
+            // Offered counts too: players often start shooting before they've talked to Old Salt.
+            return Wants(e, Expanded.Content.PirateStory.QuestOmens) || Wants(e, Expanded.Content.PirateStory.QuestFlock);
+        }
+
+        private static bool Wants(Expanded.Quests.QuestEngine e, string questId)
+        {
+            Expanded.Quests.QuestStatus s = e.Progress(questId).Status;
+            return s == Expanded.Quests.QuestStatus.Active || s == Expanded.Quests.QuestStatus.Available;
         }
 
         private bool SpawnGull(Vector3 pos)
