@@ -17,6 +17,11 @@ namespace Expanded.Content
         /// <summary>Flag that must be set before this character appears. Null = always present.</summary>
         public string AppearsAfter;
         /// <summary>
+        /// First island (0-based: 0 = the starting island) the character shows up on. The story starts
+        /// on the second island, where the game hands out guns - nobody waits on the first.
+        /// </summary>
+        public int MinIsland = PirateStory.IslandWithGuns;
+        /// <summary>
         /// Idle chatter, keyed by the story flag that unlocks each line. A key starting with "!" means
         /// "only while this flag is NOT set" - for hints that stop once they've been acted on.
         /// </summary>
@@ -50,8 +55,6 @@ namespace Expanded.Content
             }
             .Bark(null, "Fish don't catch themselves. Well. Mostly.")
             .Bark(null, "I was here before you. I'll be at the next island before you, too. Don't ask.")
-            .Bark("!" + PirateStory.FlagOmens, "Nothing to shoot with? The next island sells things that go bang. Find me there.")
-            .Bark("!" + PirateStory.FlagOmens, "The gulls here stole my teeth. When you've got a gun, we'll talk.")
             .Bark(PirateStory.FlagOmens, "Hear that? Gulls stopped screaming. Never a good sign.")
             .Bark(PirateStory.FlagChart, "Anne'll know what that chart means. She knows everything that's written down.")
             .Bark(PirateStory.FlagPiratesBeaten, "Heard you beat the Gull Pirates. Bold. Stupid, but bold."),
@@ -86,6 +89,7 @@ namespace Expanded.Content
         public static bool IsPresent(NpcDef npc, QuestEngine engine)
         {
             if (npc == null) return false;
+            if (engine != null && engine.CurrentIsland < npc.MinIsland) return false;
             if (string.IsNullOrEmpty(npc.AppearsAfter)) return true;
             return engine != null && engine.HasFlag(npc.AppearsAfter);
         }

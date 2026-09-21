@@ -110,14 +110,14 @@ namespace Expanded.Tests
             e.CurrentIsland = 0;
             e.RefreshAvailability();
             Check(e.Progress(PirateStory.QuestOmens).Status == QuestStatus.Locked, "no gull job on the starting island (no gun yet)");
-            Check(StoryNpcs.CurrentBarks(StoryNpcs.ById("salt"), e).Exists(l => l.Contains("next island")),
-                  "Old Salt points you to the next island meanwhile");
+            Check(!StoryNpcs.IsPresent(StoryNpcs.ById("salt"), e), "Old Salt is not on the starting island");
 
             e.CurrentIsland = 1;
             e.HighestIsland = 1;
             e.RefreshAvailability();
 
             Check(e.Progress(PirateStory.QuestOmens).Status == QuestStatus.Available, "opening quest offered on the second island");
+            Check(StoryNpcs.IsPresent(StoryNpcs.ById("salt"), e), "Old Salt waits on the second island");
             Check(e.Progress(PirateStory.QuestPirates).Status == QuestStatus.Locked, "finale locked at start");
             Check(!StoryNpcs.IsPresent(StoryNpcs.ById("anne"), e), "Anne not present yet");
 
@@ -152,6 +152,8 @@ namespace Expanded.Tests
             e.CurrentIsland = 0;   // sailing back home keeps what was unlocked
             e.RefreshAvailability();
             Check(e.Progress(PirateStory.QuestPirates).Status == QuestStatus.Available, "finale stays offered back home");
+            Check(!StoryNpcs.IsPresent(StoryNpcs.ById("anne"), e), "nobody from the story waits on the starting island");
+            e.CurrentIsland = 2;
 
             Check(e.Accept(PirateStory.QuestPirates), "accept Colours at Dawn");
             Check(e.Progress(PirateStory.QuestPirates).StepIndex == 0, "first beat: buy a gun");

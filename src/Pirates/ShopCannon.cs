@@ -129,11 +129,14 @@ namespace Expanded.Pirates
             {
                 var root = new GameObject(BoatMount.MountRoot + "ShopCannon");
                 root.SetActive(false);
-                root.transform.SetPositionAndRotation(pos, anchor.transform.rotation);
+                // Upright, facing the way the motors face. The stand's own rotation is tilted (the game's
+                // models are authored lying down), so only its heading is used.
+                Quaternion upright = UprightHeading(anchor.transform);
+                root.transform.SetPositionAndRotation(pos, upright);
                 root.layer = LayerMask.NameToLayer("Interactable");
                 root.tag = "Interactable";   // the game's look-at only considers colliders with this tag
 
-                GameObject model = ModAssets.Create("cannon", pos, anchor.transform.rotation, root.transform, solid: false);
+                GameObject model = ModAssets.Create("cannon", pos, upright, root.transform, solid: false);
                 if (model != null) model.transform.localScale *= PirateModule.Cfg.DeckCannonScale.Value;
                 Bounds b = model != null ? ModAssets.Measure(model) : new Bounds(pos + Vector3.up * 0.4f, new Vector3(0.8f, 0.8f, 1.2f));
 
@@ -160,6 +163,15 @@ namespace Expanded.Pirates
             {
                 Diag.Exception("ShopCannon.Build", e);
             }
+        }
+
+        /// <summary>A rotation around the vertical axis only, taken from a possibly tilted transform.</summary>
+        private static Quaternion UprightHeading(Transform t)
+        {
+            Vector3 f = t.forward; f.y = 0f;
+            if (f.sqrMagnitude < 0.05f) { f = t.up; f.y = 0f; }       // forward points straight up/down
+            if (f.sqrMagnitude < 0.05f) { f = t.right; f.y = 0f; }
+            return f.sqrMagnitude < 1e-4f ? Quaternion.identity : Quaternion.LookRotation(f.normalized, Vector3.up);
         }
 
         private static GameObject[] OutlineTargets(GameObject model)

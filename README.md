@@ -38,9 +38,9 @@ There are no cheat keys in normal play. For testing, set `Debug / DevHotkeys = t
 
 ## The story (Act 1)
 
-1. **Old Salt** waits at the landing of whatever island you're on (look for the **!**). On the first
-   island he just grumbles - you have nothing to shoot with yet.
-2. **Second island** - *Bad Omens*: shoot three seagulls and throw them to him. He eats them (1/3,
+1. From the **second island** on (where the game sells guns), **Old Salt** waits at the landing of
+   whatever island you're on - look for the **!**. Nobody from the story is on the first island.
+2. *Bad Omens*: shoot three seagulls and throw them to him. He eats them (1/3,
    2/3, 3/3). Reward: $50. Extra gulls fly in while a gull job is running.
 3. *The Flock Breaks*: kill five gulls inside three minutes to call the swarm, then survive every
    wave - each bigger than the last, each with a time limit (bar at the top). Everyone down or time
