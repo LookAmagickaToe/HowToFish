@@ -8,7 +8,7 @@ namespace Expanded.Pirates
 {
     /// <summary>
     /// The spot the gulls' chart marks: a buoy with a pirate flag, a couple of hundred metres
-    /// off the island, with an on-screen marker and distance so the player always knows where to go.
+    /// off the island, shown as a red dot on the game's radar (boat radar and handheld map).
     ///
     /// It gives the finale a destination instead of "sail somewhere and wait". The host picks the spot
     /// (open water, reachable) and decides when the party has arrived; every client draws the buoy
@@ -207,55 +207,6 @@ namespace Expanded.Pirates
         {
             _shown = false;
             ClearVisual();
-        }
-
-        // ------------------------------------------------------------------ marker
-
-        private static GUIStyle _label;
-
-        private static bool HasBoatRadar()
-        {
-            try { return BoatManager.Boat != null && BoatManager.Boat.BoatRadarUnlocked; }
-            catch { return false; }
-        }
-
-        /// <summary>
-        /// Marker with distance, pinned to the screen edge when the mark is off-screen or behind you,
-        /// so the player can always turn towards it.
-        /// </summary>
-        internal static void OnGUI()
-        {
-            if (!_shown) return;
-
-            // The radar shows the mark (red dot). The floating label is only a fallback for crews
-            // who have not bought the boat radar yet - otherwise there would be no way to find it.
-            if (HasBoatRadar() || ChartRadar.AnyRadarOn) return;
-
-            Camera cam = null;
-            try { cam = GameInfo.CurCamera; } catch { }
-            if (cam == null) return;
-
-            if (_label == null)
-            {
-                _label = new GUIStyle(GUI.skin.label) { fontSize = 16, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-                _label.normal.textColor = new Color(1f, 0.82f, 0.35f);
-            }
-
-            Vector3 world = _shownPos + Vector3.up * 3f;
-            Vector3 sp = cam.WorldToScreenPoint(world);
-            bool behind = sp.z < 0f;
-            if (behind) { sp.x = Screen.width - sp.x; sp.y = 0f; }
-
-            const float margin = 50f;
-            float x = Mathf.Clamp(sp.x, margin, Screen.width - margin);
-            float y = Mathf.Clamp(Screen.height - sp.y, margin, Screen.height - margin);
-
-            float dist = Vector3.Distance(cam.transform.position, _shownPos);
-            string text = "X  Chart mark\n" + dist.ToString("0") + " m";
-
-            Rect r = new Rect(x - 70f, y - 22f, 140f, 44f);
-            PirateModule.DrawRect(r, new Color(0f, 0f, 0f, 0.35f));
-            GUI.Label(r, text, _label);
         }
     }
 }

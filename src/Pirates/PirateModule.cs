@@ -598,7 +598,6 @@ namespace Expanded.Pirates
         internal override void OnGUI()
         {
             DeckCannon.OnGUI();
-            ChartSite.OnGUI();
 
             if (!_barVisible) return;
 
