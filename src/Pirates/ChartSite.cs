@@ -56,7 +56,7 @@ namespace Expanded.Pirates
                 return;
             }
 
-            float dist = FlatDistance(PirateModule.PartyPosition(), _pos);
+            float dist = ClosestApproach(_pos);
 
             // Step 1: arriving at the mark is the story beat.
             if (p.StepIndex == 1 && dist <= Cfg.SiteReachRadius.Value)
@@ -118,6 +118,28 @@ namespace Expanded.Pirates
             try { return OnlineIslandManager.CurIsland; } catch { return 0; }
         }
 
+        /// <summary>
+        /// How close anyone has come: the nearest living player or the boat as it is drawn. (The
+        /// boat's root object stays where the boat was spawned while the boat itself sails, so it
+        /// must never be used as "where the boat is" - that is why arriving at the mark did nothing.)
+        /// </summary>
+        private static float ClosestApproach(Vector3 mark)
+        {
+            float best = float.MaxValue;
+            try
+            {
+                Boat boat = BoatManager.Boat;
+                if (boat != null) best = FlatDistance(BoatMount.Frame(boat).position, mark);
+            }
+            catch { /* boat not ready */ }
+
+            var alive = PlayerManager.AlivePlayers;
+            if (alive != null)
+                foreach (Player p in alive)
+                    if (p != null) best = Mathf.Min(best, FlatDistance(p.Transform.position, mark));
+            return best;
+        }
+
         private static float FlatDistance(Vector3 a, Vector3 b)
         {
             a.y = b.y = 0f;
@@ -144,11 +166,16 @@ namespace Expanded.Pirates
             ClearVisual();
 
             // A floating barrel with a tall pirate flag: readable from a distance, obviously man-made.
+            // Solid, so boats bump into it and players can't wade through; the colliders ride a
+            // kinematic body because the buoy moves every frame with the swell.
             _buoy = new GameObject(BoatMount.MountRoot + "ChartBuoy");
             _buoy.transform.position = _shownPos;
-            ModAssets.Create("barrel", _shownPos, Quaternion.identity, _buoy.transform, solid: false);
-            GameObject flag = ModAssets.Create("flag-pirate-high", _shownPos, Quaternion.identity, _buoy.transform, solid: false);
+            ModAssets.Create("barrel", _shownPos, Quaternion.identity, _buoy.transform, solid: true);
+            GameObject flag = ModAssets.Create("flag-pirate-high", _shownPos, Quaternion.identity, _buoy.transform, solid: true);
             if (flag != null) flag.transform.localPosition = new Vector3(0f, 0.6f, 0f);
+            Rigidbody body = _buoy.AddComponent<Rigidbody>();
+            body.isKinematic = true;
+            body.interpolation = RigidbodyInterpolation.Interpolate;
             _bobPhase = UnityEngine.Random.Range(0f, 6.28f);
         }
 
@@ -156,19 +183,24 @@ namespace Expanded.Pirates
         {
             if (_buoy != null) UnityEngine.Object.Destroy(_buoy);
             _buoy = null;
+            ChartRadar.Clear();
         }
 
         internal static void ClientTick()
         {
+            if (_shown) ChartRadar.Tick(_shownPos);
             if (_buoy == null) return;
+
             // Ride the swell with a lazy wobble so it reads as floating, not planted.
             float water = PirateModule.WaterY();
             Vector3 p = _shownPos;
             p.y = water - 0.3f + Mathf.Sin(Time.time * 1.1f + _bobPhase) * 0.25f;
-            _buoy.transform.position = p;
-            _buoy.transform.rotation = Quaternion.Euler(Mathf.Sin(Time.time * 0.9f + _bobPhase) * 6f,
-                                                        Time.time * 4f,
-                                                        Mathf.Cos(Time.time * 0.7f + _bobPhase) * 6f);
+            Quaternion rot = Quaternion.Euler(Mathf.Sin(Time.time * 0.9f + _bobPhase) * 6f,
+                                              Time.time * 4f,
+                                              Mathf.Cos(Time.time * 0.7f + _bobPhase) * 6f);
+            Rigidbody body = _buoy.GetComponent<Rigidbody>();
+            if (body != null) { body.MovePosition(p); body.MoveRotation(rot); }
+            else _buoy.transform.SetPositionAndRotation(p, rot);
         }
 
         internal static void ClientClear()
@@ -181,6 +213,12 @@ namespace Expanded.Pirates
 
         private static GUIStyle _label;
 
+        private static bool HasBoatRadar()
+        {
+            try { return BoatManager.Boat != null && BoatManager.Boat.BoatRadarUnlocked; }
+            catch { return false; }
+        }
+
         /// <summary>
         /// Marker with distance, pinned to the screen edge when the mark is off-screen or behind you,
         /// so the player can always turn towards it.
@@ -188,6 +226,10 @@ namespace Expanded.Pirates
         internal static void OnGUI()
         {
             if (!_shown) return;
+
+            // The radar shows the mark (red dot). The floating label is only a fallback for crews
+            // who have not bought the boat radar yet - otherwise there would be no way to find it.
+            if (HasBoatRadar() || ChartRadar.AnyRadarOn) return;
 
             Camera cam = null;
             try { cam = GameInfo.CurCamera; } catch { }

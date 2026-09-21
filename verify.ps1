@@ -179,6 +179,31 @@ $dbn = (Get-Type "Item").Methods | Where-Object { $_.Name -eq "DestroyByNpc" } |
 if ($dbn -and ($dbn.Parameters | Where-Object { $_.Name -eq "npcID" })) { Write-Host "  ok    Item.DestroyByNpc has parameter 'npcID'" -ForegroundColor Green }
 else { Write-Host "  FAIL  Item.DestroyByNpc lacks parameter 'npcID'" -ForegroundColor Red; $fail++ }
 
+Write-Host "`n-- Manned deck gun (holds the player like the boat's driver) --"
+Check-Method "PlayerMovement" "Move"            @()
+Check-Method "PlayerMovement" "FixedUpdate"     @()
+Check-Method "PlayerMovement" "LateUpdate"      @()
+Check-Field  "PlayerMovement" "_rig"            $null
+Check-Field  "PlayerMovement" "_player"         $null
+Check-Method "PlayerCamera"   "MouseMovement"   @()
+Check-Method "PlayerCamera"   "SetRot"          @("Single")
+Check-Field  "PlayerCamera"   "_rot"            $null
+Check-Field  "PlayerCamera"   "_player"         $null
+foreach ($m in @("PickUpInput", "PrimaryInput", "PrimaryInputCanceled", "SecondaryInput", "ReloadInput")) {
+    Check-Method "PlayerHolding" $m @("CallbackContext")
+}
+Check-Method "PlayerPunching" "PunchInput"      @("CallbackContext")
+Check-Method "Boat"           "get_IsDrivingLocally" @()
+
+Write-Host "`n-- Chart mark on the radar --"
+foreach ($f in @("_islandDots", "_isOn", "_localPlayerPos", "_mapScale", "_zoomMultiplier", "_maxPosDist", "_radarSweepDir", "_angleForPing")) {
+    Check-Field "RadarUI" $f $null
+}
+Check-Field  "MapDot" "_dot" $null
+Check-Method "MapDot" "Move" @("Vector2", "Vector2", "Single", "Single", "Single")
+Check-Method "MapDot" "TriggerPing" @()
+Check-Method "Boat"   "get_BoatRadarUnlocked" @()
+
 Write-Host "`n-- Pirate hull (reaches into the game's boat) --"
 foreach ($f in @("_dynamicObjectColsHolder", "_itemColsHolder", "_dynamicObjectCols", "_steeringWheel", "_throttle", "_boatInteractable")) {
     Check-Field "Boat" $f $null

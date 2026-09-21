@@ -47,6 +47,7 @@ namespace Expanded.Pirates
         public readonly ConfigEntry<float> CannonGravity;
         public readonly ConfigEntry<float> CannonballScale;
         public readonly ConfigEntry<float> WaterFishChance;
+        public readonly ConfigEntry<float> DeckCannonYawArc;
 
         // --- damage to the ship ------------------------------------------------
         public readonly ConfigEntry<float> ExplosionDamageMultiplier;
@@ -149,9 +150,11 @@ namespace Expanded.Pirates
                 "Upper limit on gunfire damage per second across the whole crew.");
 
             InteractKey = c.Bind(P, "InteractKey", KeyCode.F,
-                "Fires the deck cannon (and talks to mod NPCs). F is unused by the game.");
-            InteractRange = c.Bind(P, "InteractRange", 2.5f, "How close you must stand to use the cannon.");
-            DeckCannonCooldown = c.Bind(P, "Cooldown", 4f, "Reload time in seconds.");
+                "Unused since the gun is manned with the game's interact key (E); kept for old configs.");
+            InteractRange = c.Bind(P, "InteractRange", 2.5f, "How far from the gun a shot is still accepted (host check).");
+            DeckCannonCooldown = c.Bind(P, "Cooldown", 4f, "Reload time in seconds (press R at the gun).");
+            DeckCannonYawArc = c.Bind(P, "TraverseDegrees", 40f,
+                "How far the manned gun swings to either side of straight ahead.");
             DeckCannonSpeed = c.Bind(P, "MuzzleVelocity", 45f, "Muzzle velocity in m/s.");
             DeckCannonMaxElevation = c.Bind(P, "MaxElevationDegrees", 35f,
                 "Highest you can aim. The lowest is fixed at -10 so you cannot shoot your own deck.");

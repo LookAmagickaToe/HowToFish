@@ -20,7 +20,14 @@ namespace Expanded.Pirates
         {
             public Boat Boat;
             public Bounds Local;
+            /// <summary>True if the hull's length runs along local X, false for local Z.</summary>
+            public bool AlongX;
+            /// <summary>+1 if the bow is at the positive end of that axis, -1 if at the negative end.</summary>
             public float BowSign;
+
+            public Vector3 Bow => (AlongX ? Vector3.right : Vector3.forward) * BowSign;
+            public float Extent => AlongX ? Local.extents.x : Local.extents.z;
+            public float Centre => AlongX ? Local.center.x : Local.center.z;
         }
 
         private static Layout _layout;
@@ -55,25 +62,28 @@ namespace Expanded.Pirates
             if (l == null) return false;
 
             Bounds b = l.Local;
-            float z;
+            float ext = l.Extent;
+            float along;   // offset from the centre along the hull, towards the bow
             switch (slot)
             {
                 case Slot.Bow:
-                    z = b.center.z + l.BowSign * Mathf.Max(0.3f, Mathf.Min(b.extents.z - 1.3f, b.extents.z * 0.72f));
-                    localForward = new Vector3(0f, 0f, l.BowSign);
+                    // Right up in the bow, on the centreline, where the stem narrows.
+                    along = Mathf.Max(0.3f, Mathf.Min(ext - 0.55f, ext * 0.85f));
+                    localForward = l.Bow;
                     break;
                 case Slot.Stern:
-                    z = b.center.z - l.BowSign * Mathf.Max(0.3f, Mathf.Min(b.extents.z - 1.6f, b.extents.z * 0.65f));
-                    localForward = new Vector3(0f, 0f, -l.BowSign);
+                    along = -Mathf.Max(0.3f, Mathf.Min(ext - 1.6f, ext * 0.65f));
+                    localForward = -l.Bow;
                     break;
                 default:
-                    z = b.center.z;
-                    localForward = new Vector3(0f, 0f, l.BowSign);
+                    along = 0f;
+                    localForward = l.Bow;
                     break;
             }
 
-            float y = DeckHeight(boat, new Vector3(b.center.x, b.max.y, z), b);
-            localPos = new Vector3(b.center.x, y, z);
+            Vector3 p = b.center + l.Bow * along;
+            float y = DeckHeight(boat, new Vector3(p.x, b.max.y, p.z), b);
+            localPos = new Vector3(p.x, y, p.z);
             return true;
         }
 
@@ -134,22 +144,44 @@ namespace Expanded.Pirates
                 return null;
             }
 
+            // Which way is forward: the driver faces the bow, and the outboard motor sits at the
+            // stern. The driver decides; the motor vetoes if it would end up at the front.
+            bool alongX = local.size.x > local.size.z;
             float bowSign = 1f;
+            string how = "hull shape";
+
+            Vector3 driverFwd = Vector3.zero;
+            try { if (boat.DriverPos != null) driverFwd = root.InverseTransformDirection(boat.DriverPos.forward); }
+            catch { /* no driver seat */ }
+            driverFwd.y = 0f;
+            if (driverFwd.sqrMagnitude > 0.1f)
+            {
+                alongX = Mathf.Abs(driverFwd.x) > Mathf.Abs(driverFwd.z);
+                bowSign = Mathf.Sign(alongX ? driverFwd.x : driverFwd.z);
+                how = "driver seat";
+            }
+
             BoatMotor motor = boat.GetComponentInChildren<BoatMotor>(true);
             if (motor != null)
             {
-                float motorZ = root.InverseTransformPoint(motor.transform.position).z;
-                bowSign = motorZ > local.center.z ? -1f : 1f;
-            }
-            else
-            {
-                Diag.Warn("BoatMount: no motor found, assuming the bow is +Z.");
+                Vector3 m = root.InverseTransformPoint(motor.transform.position);
+                float motorAlong = (alongX ? m.x - local.center.x : m.z - local.center.z);
+                if (Mathf.Abs(motorAlong) > 0.2f && Mathf.Sign(motorAlong) == bowSign)
+                {
+                    bowSign = -Mathf.Sign(motorAlong);
+                    how += ", flipped: motor is at the stern";
+                }
+                else if (how == "hull shape")
+                {
+                    bowSign = motorAlong > 0f ? -1f : 1f;
+                    how = "motor";
+                }
             }
 
-            _layout = new Layout { Boat = boat, Local = local, BowSign = bowSign };
+            _layout = new Layout { Boat = boat, Local = local, AlongX = alongX, BowSign = bowSign };
             Diag.Info("BoatMount: boat measures " + local.size.ToString("F1") + " (local, from " + source +
                       "), centre " + local.center.ToString("F1") + ", bow towards " +
-                      (bowSign > 0 ? "+Z" : "-Z") + (motor != null ? " (from motor)" : "") + ".");
+                      (bowSign > 0 ? "+" : "-") + (alongX ? "X" : "Z") + " (" + how + ").");
             return _layout;
         }
 

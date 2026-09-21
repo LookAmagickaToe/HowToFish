@@ -282,8 +282,8 @@ namespace Expanded.Pirates
             QuestModule.Instance?.SetFlag(PirateStory.FlagCannonBought);
 
             PirateModule.Announce((buyer != null ? buyer.SteamName : "Someone") +
-                                  " bought a swivel gun. It's bolted to the bow - stand at it and press " +
-                                  PirateModule.Cfg.InteractKey.Value + " to fire.");
+                                  " bought a swivel gun. It's bolted to the bow - press E at it to man it, " +
+                                  "left click fires, R reloads, E lets go.");
         }
 
         private static Player PlayerFor(NetworkConnection conn)

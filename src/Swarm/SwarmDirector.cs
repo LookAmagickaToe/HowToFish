@@ -248,7 +248,7 @@ namespace SeagullSwarm
             }
 
             if (BoatManager.Boat != null)
-                _anchor = Vector3.Lerp(_anchor, BoatManager.Boat.transform.position, Time.deltaTime * 1.5f);
+                _anchor = Vector3.Lerp(_anchor, Expanded.Pirates.BoatMount.Frame(BoatManager.Boat).position, Time.deltaTime * 1.5f);
         }
 
         // ------------------------------------------------------------------ status snapshot

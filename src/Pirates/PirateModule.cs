@@ -34,7 +34,7 @@ namespace Expanded.Pirates
         internal override string Id => "Pirates";
         internal override string DisplayName => "Pirate Raid";
         internal override KeyCode DefaultDebugKey => KeyCode.F4;
-        internal override Type[] PatchTypes => new[] { typeof(PiratePatches) };
+        internal override Type[] PatchTypes => new[] { typeof(PiratePatches), typeof(GunPatches) };
 
         private GameObject _prefabRoot;       // inactive template, never rendered
         private NetworkObject _prefab;
@@ -468,7 +468,7 @@ namespace Expanded.Pirates
             try
             {
                 if (BoatManager.Boat == null) return false;
-                Vector3 boat = BoatManager.Boat.transform.position;
+                Vector3 boat = BoatMount.Frame(BoatManager.Boat).position;
                 Vector3 mooring = SpawnManager.BoatSpawnPos;
                 boat.y = mooring.y = 0f;
                 return Vector3.Distance(boat, mooring) >= Cfg.AtSeaDistance.Value;
@@ -657,7 +657,8 @@ namespace Expanded.Pirates
         {
             try
             {
-                if (BoatManager.Boat != null) return BoatManager.Boat.transform.position;
+                // The drawn boat, not its root: the root stays at the spawn point while the boat sails.
+                if (BoatManager.Boat != null) return BoatMount.Frame(BoatManager.Boat).position;
             }
             catch { /* boat not ready */ }
 
