@@ -29,6 +29,20 @@ themselves, for nothing.
 Packing needs **Unity 6000.4.4** (the game's exact version), which is the one step I can't do for
 you. It's a one-off: after that, replacing a model is just rebuilding the bundle.
 
+## The megalodon and the wakeboard need nothing new
+
+- The **megalodon** is the Quaternius **Shark** (`Characters_Shark`, animations Swim / Swim_Fast /
+  Swim_Bite) from pack #4 above - already in the characters bundle. Its nose direction is detected
+  from the mesh; if it ever swims backwards, set `Megalodon / ModelYawOffset = 180`.
+- The **door** tier and the **barrel mines** use the Kenney `castle-door` and `barrel` from pack #1.
+- The **wakeboard, bathtub (with duck), buoys, jellyfish, flying fish, ramps, dentures, GameBoy and
+  the stomach** are built from Unity primitives in `src/Megalodon/MegaShapes.cs` - no download.
+- Sounds are the game's own (splashes, bites, burps, rumble); the dun-dun and heartbeat are
+  synthesised in code.
+
+Optional nicer models, if you want them later (all CC0, drop into `assets/raw/` and tell me):
+a bathtub and a rubber duck (e.g. Kenney *Furniture Kit*), a wakeboard/surfboard, a jellyfish.
+
 ## Placeholders used until then
 
 The mod builds stand-ins from assets already inside the game, so nothing is blocked:

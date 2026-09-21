@@ -809,7 +809,10 @@ namespace Expanded.Pirates
 
         private static void ShowBanner(string text)
         {
-            try { ChatManager.ChatMessage("<color=#E08040>[Pirates]</color> " + text); }
+            // Announcements from the megalodon module ride the same message, marked with .
+            bool sea = !string.IsNullOrEmpty(text) && text[0] == '';
+            if (sea) text = text.Substring(1);
+            try { ChatManager.ChatMessage((sea ? "<color=#4FA8E0>[Sea]</color> " : "<color=#E08040>[Pirates]</color> ") + text); }
             catch (Exception e) { Diag.Exception("Pirates chat", e); }
         }
 

@@ -233,6 +233,46 @@ Check-Method "Boat" "get_BoatTrigger"  @()
 Check-Field  "BoatManager" "ColToBoat" "public"
 Check-Method "GameInfo" "get_NpcLayer" @()
 
+Write-Host "`n-- Megalodon & wakeboard --"
+Check-Method "PlayerCamera"      "Update"               @()
+Check-Method "PlayerCamera"      "SetFov"               @()
+Check-Field  "PlayerCamera"      "_cam"                 $null
+Check-Field  "PlayerMovement"    "_origColHeight"       $null
+Check-Method "PlayerMovement"    "get_Input"            @()
+Check-Method "PlayerMovement"    "get_OnBoat"           @()
+Check-Method "PlayerMovement"    "RPCKnockback"         @("NetworkConnection", "Vector3")
+Check-Method "PlayerCamera"      "SetMoveValues"        @("Single", "Single", "Single")
+Check-Method "ProjectileManager" "UpdateProjectileScan" @("Projectile", "ProjectileType")
+Check-Method "ProjectileManager" "AddToRemoveQueue"     @("Projectile")
+Check-Field  "ProjectileType"    "ProjectilesToRemove"  "public"
+Check-Field  "ProjectileType"    "WidthRadius"          "public"
+Check-Field  "Projectile"        "Position"             "public"
+Check-Field  "Projectile"        "Velocity"             "public"
+Check-Field  "Projectile"        "CatchingUpToDo"       "public"
+Check-Method "Boat"              "ApplyInputForce"      @()
+Check-Method "Boat"              "ApplyReturnForce"     @()
+Check-Method "Boat"              "FixedUpdate"          @()
+Check-Method "Boat"              "get_HiddenPhysicsRig" @()
+Check-Method "Boat"              "get_Velocity"         @()
+Check-Method "Boat"              "get_Driver"           @()
+Check-Field  "Boat"              "_curMotor"            $null
+Check-Method "BoatMotor"         "get_Force"            @()
+Check-Method "BoatMotor"         "get_Propeller"        @()
+Check-Method "WaterManager"      "GetWaterHeight"       @("Vector3")
+Check-Method "WaterManager"      "IsUnderWater"         @("Vector3")
+Check-Method "Player"            "LocalTeleport"        @("Vector3", "Single", "Boolean")
+Check-Method "Server"            "HitPlayer"            @("Player", "Int32", "Vector3", "Vector3", "Byte", "Player")
+Check-Method "VFXManager"        "Play"                 @("String", "Vector3", "Vector3")
+Check-Method "AudioManager"      "PlayGlobalClip"       @("String", "Boolean", "Single", "Single", "Boolean")
+Check-Method "AudioManager"      "PlayRandomGlobalClip" @("String", "Int32", "Int32", "Boolean", "Single", "Single")
+Check-Method "DazedUtils"        "PlayCreatureHitEffects" @("Vector3", "Vector3", "Int32", "Single", "Boolean", "Boolean", "Int32", "Player")
+Check-Method "PlayerScreenShake" "Shake"                @("Single", "Int32", "Vector2")
+Check-Method "Item"              "get_HasPlayerHolder"  @()
+$ups = (Get-Type "ProjectileManager").Methods | Where-Object { $_.Name -eq "UpdateProjectileScan" } | Select-Object -First 1
+$upn = @($ups.Parameters | ForEach-Object { $_.Name })
+if (($upn -contains "projectile") -and ($upn -contains "type")) { Write-Host "  ok    ProjectileManager.UpdateProjectileScan has (projectile, type)" -ForegroundColor Green }
+else { Write-Host "  FAIL  ProjectileManager.UpdateProjectileScan parameters are ($($upn -join ', ')), patch expects (projectile, type)" -ForegroundColor Red; $fail++ }
+
 Write-Host "`n-- Harmony argument names (pirates) --"
 foreach ($spec in @(@("ExplosionManager","ServerExplode",@("item","info")), @("ProjectileManager","Hit",@("projectile","hit")))) {
     $mm = (Get-Type $spec[0]).Methods | Where-Object { $_.Name -eq $spec[1] } | Select-Object -First 1

@@ -25,9 +25,12 @@ $sources = @(
     (Join-Path $root "src\Quests\QuestEngine.cs"),
     (Join-Path $root "src\Content\PirateStory.cs"),
     (Join-Path $root "src\Content\StoryNpcs.cs"),
+    (Join-Path $root "src\Content\MegalodonStory.cs"),
+    (Join-Path $root "src\Megalodon\MegaRules.cs"),
     (Join-Path $root "src\Pirates\Ballistics.cs"),
     (Join-Path $PSScriptRoot "QuestEngineTests.cs"),
-    (Join-Path $PSScriptRoot "ContentTests.cs")
+    (Join-Path $PSScriptRoot "ContentTests.cs"),
+    (Join-Path $PSScriptRoot "MegaTests.cs")
 )
 foreach ($s in $sources) { if (-not (Test-Path $s)) { throw "missing source: $s" } }
 

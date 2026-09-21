@@ -33,6 +33,7 @@ namespace Expanded.Tests
         {
             var e = new QuestEngine();
             PirateStory.Register(e);
+            MegalodonStory.Register(e);
             return e;
         }
 
@@ -72,7 +73,10 @@ namespace Expanded.Tests
                 PirateStory.FlagSwarmDefeated,
                 PirateStory.FlagCannonBought,
                 PirateStory.FlagSiteReached,
-                PirateStory.FlagPiratesBeaten
+                PirateStory.FlagPiratesBeaten,
+                MegalodonStory.FlagWakeboardBought,
+                MegalodonStory.FlagTeethRecovered,
+                MegalodonStory.FlagMegalodonBeaten
             };
             foreach (QuestDef q in e.Definitions)
             {

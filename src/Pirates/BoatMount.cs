@@ -89,6 +89,18 @@ namespace Expanded.Pirates
             return true;
         }
 
+        /// <summary>Deck height (in the boat's local frame) under a local point, e.g. beside the helm.</summary>
+        internal static bool TryDeckHeight(Vector3 local, out float y)
+        {
+            y = 0f;
+            Boat boat = BoatManager.Boat;
+            if (boat == null) return false;
+            Layout l = LayoutFor(boat);
+            if (l == null) return false;
+            y = DeckHeight(boat, new Vector3(local.x, l.Local.max.y, local.z), l.Local);
+            return true;
+        }
+
         internal static bool TryGetWorld(Slot slot, out Vector3 worldPos, out Vector3 worldForward)
         {
             worldPos = Vector3.zero;

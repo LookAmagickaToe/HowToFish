@@ -19,7 +19,7 @@ namespace Expanded
     public class ExpandedPlugin : BaseUnityPlugin
     {
         public const string Guid = "dazed.howtofish.expanded";
-        public const string Version = "0.2.0";
+        public const string Version = "0.3.0";
 
         internal static ExpandedPlugin Instance { get; private set; }
         internal static ManualLogSource Log { get; private set; }
@@ -86,6 +86,7 @@ namespace Expanded
             Modules.Add(new Expanded.Npcs.NpcModule());
             Modules.Add(new AssetsModule());
             Modules.Add(new ArmoryModule());
+            Modules.Add(new Expanded.Megalodon.MegaModule());
         }
 
         private void ConfigureModules()
@@ -115,14 +116,17 @@ namespace Expanded
         private void PatchModules()
         {
             _harmony = new Harmony(Guid);
-            int expected = 0, applied = 0;
+            int applied = 0;
+            // Distinct targets across all modules: two modules may hook the same game method (the
+            // deck gun and the wakeboard both hold the player), which Harmony counts once.
+            var targets = new HashSet<string>();
 
             foreach (ModuleBase m in Modules)
             {
                 if (!m.IsEnabled) continue;
                 foreach (Type t in m.PatchTypes)
                 {
-                    expected += CountPatchMethods(t);
+                    CollectPatchTargets(t, targets);
                     try
                     {
                         _harmony.PatchAll(t);
@@ -140,6 +144,7 @@ namespace Expanded
                 applied++;
             }
 
+            int expected = targets.Count;
             if (applied == expected)
                 Diag.Info("All " + applied + " game hooks attached.");
             else
@@ -147,10 +152,9 @@ namespace Expanded
                            "will not work. A game update may have changed the methods the mod hooks.");
         }
 
-        /// <summary>Counts distinct methods a patch container targets, so we can verify they all landed.</summary>
-        private static int CountPatchMethods(Type container)
+        /// <summary>Collects the distinct methods a patch container targets, so we can verify they all landed.</summary>
+        private static void CollectPatchTargets(Type container, HashSet<string> targets)
         {
-            var targets = new HashSet<string>();
             foreach (MethodInfo mi in container.GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic))
             {
                 object[] attrs = mi.GetCustomAttributes(typeof(HarmonyPatch), true);
@@ -160,7 +164,6 @@ namespace Expanded
                     targets.Add(p.info.declaringType.FullName + "." + p.info.methodName);
                 }
             }
-            return targets.Count;
         }
 
         // ------------------------------------------------------------------ loop

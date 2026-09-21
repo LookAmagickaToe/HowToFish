@@ -358,7 +358,8 @@ namespace Expanded.Tests
         {
             int a = Run();
             int b = ContentTests.Run();
-            return a | b;
+            int c = MegaTests.Run();
+            return a | b | c;
         }
     }
 }

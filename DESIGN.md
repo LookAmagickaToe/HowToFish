@@ -25,7 +25,13 @@ Someone else wants that chart, and they have cannons. (No albatross: the game ha
 using it here would give that away.)
 Reward: **the pirate ship** (the cannon is bought in the shop).
 
-**Act 2 — "The Salvage War"** *(designed)*
+**Act 2 — "Old Salt's Teeth"** *(implemented on the `megalodon` branch; see `src/Megalodon/`)*
+The gull that stole Old Salt's teeth was eaten by a megalodon that only hunts things dangling off the
+back of a boat. Buy a wakeboard, get towed far out, survive three phases of increasingly unreasonable
+shark, and get the teeth back - from its corpse, or from its stomach.
+Reward: **a megalodon tooth** (and a sea of stunned fish).
+
+**Act 2b — "The Salvage War"** *(designed)*
 The chart marks three wrecks. Each is a dive site guarded by something: a shark that has claimed it,
 a pressure-cracked hull that floods, a rival crew already anchored there. Salvage funds the refit.
 Reward: **ship upgrades** — more cannons, a reinforced hull, a powder magazine (risky: it explodes).
@@ -117,5 +123,9 @@ Small, cheap signposts so content is discovered rather than looked up:
 | Story characters + dialogue + quest markers | **Done** - grey until the colour atlas is installed |
 | Pirate raids on rich crews after Act 1 | **Done** |
 | Boarding (pirates fighting on your deck) | Not built |
-| Act 2 and 3 | Designed, not built |
+| Wakeboard: shop, rack by the helm, tow-rope physics, jumps, ramps | **Done** - untested in game |
+| Megalodon: 3-phase fight, lunges, fake-out, rope bite, tail slap, play dead, stern chomp, jump-over, finale | **Done** - untested in game |
+| Sea hazards (flying fish, jellyfish, buoys, fog banks, barrel mines), rodeo, stomach, solo autopilot | **Done** - untested in game |
+| Act 2 "Old Salt's Teeth" (quest + barks), headless tests for the fight rules | **Done** |
+| Act 2b "Salvage War" and Act 3 | Designed, not built |
 | Sea events (bottles, sharks, flotsam) | Designed, not built |

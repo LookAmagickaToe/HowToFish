@@ -58,7 +58,10 @@ namespace Expanded.Content
             .Bark(PirateStory.FlagOmens, "Hear that? Gulls stopped screaming. Never a good sign.")
             .Bark(PirateStory.FlagOmens, "Easy with the gulls. Shoot five in a hurry and the rest of 'em hold a grudge. In waves.")
             .Bark(PirateStory.FlagChart, "Anne'll know what that chart means. She knows everything that's written down.")
-            .Bark(PirateStory.FlagPiratesBeaten, "Heard you beat the Gull Pirates. Bold. Stupid, but bold."),
+            .Bark(PirateStory.FlagPiratesBeaten, "Heard you beat the Gull Pirates. Bold. Stupid, but bold.")
+            .Bark(PirateStory.FlagOmens, "That gull with my teeth? Got eaten. By something with MORE teeth. Ironic, that.")
+            .Bark(MegalodonStory.FlagWakeboardBought, "Wakeboarding? Out THERE? ...Can I have your boots, after?")
+            .Bark(MegalodonStory.FlagMegalodonBeaten, "You blew up a megalodon from a plank. I've never been prouder of a stranger."),
 
             new NpcDef
             {
@@ -78,7 +81,8 @@ namespace Expanded.Content
             .Bark(PirateStory.FlagPiratesBeaten, "Rigged the Greedy Gull's hull over your old boat. Same motor underneath. Still smells of chips.")
             .Bark(PirateStory.FlagPiratesBeaten, "She's got a stern gun as well as the bow. Brace your knees, not your back.")
             .Bark(PirateStory.FlagPiratesBeaten, "Cannons work on fish too. Nobody told you that. Now somebody has.")
-            .Bark(PirateStory.FlagPiratesBeaten, "Miss your old tub? Say the word and I'll swap the hulls back."),
+            .Bark(PirateStory.FlagPiratesBeaten, "Miss your old tub? Say the word and I'll swap the hulls back.")
+            .Bark(MegalodonStory.FlagMegalodonBeaten, "A megalodon tooth? I'll bolt it to the bow. For morale. Mine, mostly."),
         };
 
         public static NpcDef ById(string id)

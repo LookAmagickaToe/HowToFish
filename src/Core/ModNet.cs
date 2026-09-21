@@ -25,7 +25,7 @@ namespace Expanded
     internal static class ModNet
     {
         /// <summary>Bumped when the wire format changes incompatibly; mismatched peers are warned.</summary>
-        internal const int Protocol = 6;   // 2: UnlockChanged granted/revoked; 3: dialogue as lines, NpcSay; 4: SwarmStatus; 6: SwarmStatus with wave size and time limit
+        internal const int Protocol = 7;   // 2: UnlockChanged granted/revoked; 3: dialogue as lines, NpcSay; 4: SwarmStatus; 6: SwarmStatus with wave size and time limit; 7: megalodon + wakeboard
 
         internal struct ModPacket : IBroadcast
         {
@@ -305,6 +305,13 @@ namespace Expanded
         internal const byte SiteMarker = 12;     // where the chart's mark is (or that it is gone)
         internal const byte NpcSay = 13;         // a story NPC says something out loud (e.g. after eating)
         internal const byte SwarmStatus = 14;    // swarm wave / gulls left / time left, for everyone's HUD
+        internal const byte MegaPose = 30;       // where the megalodon is, ~12 times a second
+        internal const byte MegaStatus = 31;     // its health, phase, mode; the boat's engine and mines
+        internal const byte MegaEvent = 32;      // a scripted move (lunge, fake-out...), played the same everywhere
+        internal const byte WakeRiders = 33;     // who is on the tow rope, on what, with how much rope
+        internal const byte Shout = 34;          // a player yells something (bubble + gurgle)
+        internal const byte HazardSpawn = 35;    // flying fish, jellyfish, buoy, mine, ramp, fog
+        internal const byte HazardGone = 36;     // a hazard is removed (mine exploded, buoy passed)
 
         // clients -> host
         internal const byte RequestAccept = 20;  // accept an offered quest
@@ -315,5 +322,14 @@ namespace Expanded
         internal const byte RequestFire = 25;    // fire the deck cannon I am standing at
         internal const byte Hello = 26;          // I just joined: send me the current state
         internal const byte CrewHit = 27;        // my bullet hit a pirate crew member
+        internal const byte WakeRequest = 40;    // let me grab the tow rope / I let go
+        internal const byte WakeBitten = 41;     // the megalodon's jaws closed on me
+        internal const byte MegaHit = 42;        // my bullet hit the megalodon
+        internal const byte ShoutRequest = 43;   // I yell something
+        internal const byte DropMine = 44;       // driver drops a barrel mine off the stern
+        internal const byte CordPull = 45;       // driver yanks the stalled engine's pull cord
+        internal const byte Rodeo = 46;          // I landed on its back (0) / planted a charge (1) / jumped off (2)
+        internal const byte Dentures = 47;       // I grabbed Old Salt's teeth inside its stomach
+        internal const byte SoloCommand = 48;    // solo rider tells Old Salt which way to steer
     }
 }

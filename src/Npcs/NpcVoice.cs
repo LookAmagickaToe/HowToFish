@@ -23,8 +23,18 @@ namespace Expanded.Npcs
 
         internal static float VolumeScale = 1f;
 
+        /// <summary>Per-speaker loudness on top of the global scale (players shouting are louder).</summary>
+        internal float Loudness = 1f;
+
+        /// <summary>Per-speaker pitch on top of the borrowed clip's own (so two players don't sound alike).</summary>
+        internal float Pitch = 1f;
+
         private AudioSource _source;
         private float _speakUntil;
+        private float _basePitch = 1f;
+
+        /// <summary>The mixer group vanilla NPC voices play through, or null if none has been found yet.</summary>
+        internal static UnityEngine.Audio.AudioMixerGroup MixerGroup => FindTemplate()?.outputAudioMixerGroup;
 
         /// <summary>Adds a voice at head height. Harmless if no vanilla voice can be found.</summary>
         internal static NpcVoice Attach(GameObject character)
@@ -36,12 +46,16 @@ namespace Expanded.Npcs
         }
 
         /// <summary>Mumble for a stretch that grows a little with the length of the line.</summary>
-        internal void Speak(string text)
+        internal void Speak(string text) => Speak(text, 1.4f);
+
+        /// <summary>As <see cref="Speak(string)"/>, with a longer cap for shouting whole sentences.</summary>
+        internal void Speak(string text, float maxSeconds)
         {
             if (!EnsureSource()) return;
             int len = string.IsNullOrEmpty(text) ? 0 : text.Length;
-            float seconds = Mathf.Clamp(0.45f + len * 0.008f, 0.45f, 1.4f);
+            float seconds = Mathf.Clamp(0.45f + len * 0.008f, 0.45f, Mathf.Max(0.45f, maxSeconds));
             _speakUntil = Time.time + seconds;
+            _source.pitch = _basePitch * Pitch;
 
             if (!_source.isPlaying)
             {
@@ -55,7 +69,7 @@ namespace Expanded.Npcs
         {
             if (_source == null) return;
 
-            float target = Time.time < _speakUntil ? _templateVolume * VolumeScale : 0f;
+            float target = Time.time < _speakUntil ? _templateVolume * VolumeScale * Loudness : 0f;
             _source.volume = Mathf.MoveTowards(_source.volume, target, Time.deltaTime / Fade * Mathf.Max(0.01f, _templateVolume));
             if (target <= 0f && _source.volume <= 0f && _source.isPlaying) _source.Stop();
         }
@@ -77,7 +91,8 @@ namespace Expanded.Npcs
             _source.maxDistance = template.maxDistance;
             _source.dopplerLevel = template.dopplerLevel;
             _source.spread = template.spread;
-            _source.pitch = template.pitch;
+            _basePitch = template.pitch;
+            _source.pitch = _basePitch * Pitch;
             _source.priority = template.priority;
             _source.loop = true;
             _source.playOnAwake = false;

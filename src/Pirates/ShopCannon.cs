@@ -186,7 +186,7 @@ namespace Expanded.Pirates
         /// A free spot beside the motor display: on a surface, with room for the gun, and not inside
         /// the shelf or the motor itself.
         /// </summary>
-        private static bool FindSpot(Transform anchor, out Vector3 pos)
+        internal static bool FindSpot(Transform anchor, out Vector3 pos)
         {
             pos = anchor.position;
 

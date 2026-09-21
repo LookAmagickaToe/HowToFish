@@ -67,6 +67,7 @@ namespace Expanded.Quests
             try
             {
                 Content.PirateStory.Register(Engine);
+                Content.MegalodonStory.Register(Engine);
             }
             catch (Exception e)
             {
