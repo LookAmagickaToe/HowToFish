@@ -20,8 +20,9 @@ namespace SeagullSwarm
 
         // What every player's swarm bar shows, as last sent by the host.
         private bool _hudActive;
-        private int _hudWave, _hudWaves, _hudLeft;
-        private float _hudSeconds, _hudReceivedAt;
+        private int _hudWave, _hudWaves, _hudLeft, _hudSize;
+        private float _hudSeconds, _hudTotal, _hudReceivedAt;
+        private bool _onBossBar;
         private bool _hudBreak;
         private GUIStyle _hudTitle, _hudLine;
 
@@ -40,6 +41,8 @@ namespace SeagullSwarm
                 _hudLeft = r.ReadUInt16();
                 _hudSeconds = r.ReadSingle();
                 _hudBreak = r.ReadBoolean();
+                _hudSize = r.ReadUInt16();
+                _hudTotal = Mathf.Max(1f, r.ReadSingle());
                 _hudReceivedAt = Time.time;
             });
         }
@@ -50,6 +53,26 @@ namespace SeagullSwarm
             // but make sure a stale static never leaks into the next session.
             SwarmDirector.Active = null;
             _hudActive = false;
+            SwarmBossBar.Hide();
+            _onBossBar = false;
+        }
+
+        /// <summary>Keeps the game's boss bar showing the swarm while it runs (every player).</summary>
+        internal override void Tick()
+        {
+            bool live = _hudActive && Time.time - _hudReceivedAt <= 3f;
+            if (!live)
+            {
+                if (_onBossBar) { SwarmBossBar.Hide(); _onBossBar = false; }
+                return;
+            }
+
+            float secs = Mathf.Max(0f, _hudSeconds - (Time.time - _hudReceivedAt));
+            string title = _hudBreak
+                ? "Seagull Swarm  -  Wave " + _hudWave + " / " + _hudWaves + " in " + Mathf.CeilToInt(secs) + "s"
+                : "Seagull Swarm  -  Wave " + _hudWave + " / " + _hudWaves + "  (" + _hudLeft + " left)";
+            float gulls = _hudBreak ? 1f : (_hudSize > 0 ? (float)_hudLeft / _hudSize : 1f);
+            _onBossBar = SwarmBossBar.Show(title, gulls, secs / _hudTotal, _hudBreak ? 0f : secs);
         }
 
         /// <summary>The swarm bar at the top of the screen: wave, gulls left, time left.</summary>
@@ -57,6 +80,9 @@ namespace SeagullSwarm
         {
             // A host that stops talking (left, crashed) must not leave the bar up forever.
             if (!_hudActive || Time.time - _hudReceivedAt > 3f) return;
+            // Normally the swarm is on the game's own boss bar; this box is only the fallback for when
+            // a real boss already owns that bar.
+            if (_onBossBar) return;
 
             if (_hudTitle == null)
             {

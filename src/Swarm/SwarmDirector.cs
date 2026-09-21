@@ -34,6 +34,7 @@ namespace SeagullSwarm
 
         private int[] _waveSizes;
         private float _waveDeadline;
+        private float _waveLimit;
         private bool _inBreak;
         private float _breakUntil;
         private float _nextHudAt;
@@ -93,6 +94,13 @@ namespace SeagullSwarm
             if (_phase != Phase.Idle)
             {
                 Diag.Debug("Seagull kill ignored (phase " + _phase + ").");
+                return;
+            }
+            // The game restores dead gulls from the save when an island loads, and each one reports a
+            // death. Those aren't kills; only count what happens once the island is up and running.
+            if (Time.time - _attachedAt < 12f)
+            {
+                Diag.Debug("Seagull death while the island was loading - not counted.");
                 return;
             }
             _provokeKills.Add(Time.time);
@@ -202,8 +210,10 @@ namespace SeagullSwarm
             int wave = _waveIndex + 1;
             int waves = _waveSizes != null ? _waveSizes.Length : 0;
             int left = _birds.Count;
+            int size = _waveSizes != null && _waveIndex < _waveSizes.Length ? _waveSizes[_waveIndex] : left;
             bool rest = _inBreak;
             float seconds = Mathf.Max(0f, (rest ? _breakUntil : _waveDeadline) - Time.time);
+            float total = rest ? Mathf.Max(1f, SwarmModule.Cfg.WaveBreakSeconds.Value) : Mathf.Max(1f, _waveLimit);
             ModNet.SendToAll(Msg.SwarmStatus, w =>
             {
                 w.Write(active);
@@ -212,6 +222,8 @@ namespace SeagullSwarm
                 w.Write((ushort)Mathf.Clamp(left, 0, 65535));
                 w.Write(seconds);
                 w.Write(rest);
+                w.Write((ushort)Mathf.Clamp(size, 0, 65535));
+                w.Write(total);
             });
         }
 
@@ -220,6 +232,7 @@ namespace SeagullSwarm
             ModNet.SendToAll(Msg.SwarmStatus, w =>
             {
                 w.Write(false); w.Write((byte)0); w.Write((byte)0); w.Write((ushort)0); w.Write(0f); w.Write(false);
+                w.Write((ushort)0); w.Write(1f);
             });
         }
 
@@ -676,8 +689,9 @@ namespace SeagullSwarm
             center.y = Mathf.Max(waterY, _anchor.y - 2f) + cfg.ApproachHeight.Value;
 
             int n = _waveSizes[index];
-            float limit = cfg.WaveTimeBaseSeconds.Value + cfg.WaveTimePerBirdSeconds.Value * n;
-            _waveDeadline = Time.time + Mathf.Max(15f, limit);
+            float limit = Mathf.Max(15f, cfg.WaveTimeBaseSeconds.Value + cfg.WaveTimePerBirdSeconds.Value * n);
+            _waveLimit = limit;
+            _waveDeadline = Time.time + limit;
 
             Banner("Wave " + (index + 1) + "/" + _waveSizes.Length + ": " + n + " gulls from " +
                    RelativeDirection(center) + "! " + Mathf.RoundToInt(limit) + "s to break them.");

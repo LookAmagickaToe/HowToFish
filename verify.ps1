@@ -203,6 +203,13 @@ Check-Method "RigidbodySync"  "get_OnBoat"      @()
 Check-Method "ItemManager"    "get_Items"       @()
 Check-Method "OnlineIslandManager" "get_CurIsland" @()
 
+Write-Host "`n-- Swarm on the game's boss bar --"
+Check-Field  "PlayerUI" "_bossUI" $null
+foreach ($f in @("_bossCanvasLerped", "_bossNameText", "_bossHealth", "_bossHealthLerped", "_timeLeftImage", "_countdownGroup", "_timeCountdownText")) {
+    Check-Field "BossUI" $f $null
+}
+Check-Method "BossManager" "get_Boss" @()
+
 Write-Host "`n-- Chart mark on the radar --"
 foreach ($f in @("_islandDots", "_isOn", "_localPlayerPos", "_mapScale", "_zoomMultiplier", "_maxPosDist", "_radarSweepDir", "_angleForPing")) {
     Check-Field "RadarUI" $f $null

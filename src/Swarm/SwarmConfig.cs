@@ -122,9 +122,9 @@ namespace SeagullSwarm
             FirstWaveSize = c.Bind("Waves", "BirdsInWave1", 15, "Birds in wave 1.");
             WaveGrowth = c.Bind("Waves", "Growth", 1.3f,
                 "Per-wave multiplier. 15 x 1.3^(n-1) gives 15 / 20 / 25 / 33 / 43 = 136 birds.");
-            WaveTimeBaseSeconds = c.Bind("Waves", "TimeLimitBaseSeconds", 45f,
+            WaveTimeBaseSeconds = c.Bind("Waves", "WaveTimeBaseSeconds", 60f,
                 "Each wave must be cleared in time: this many seconds...");
-            WaveTimePerBirdSeconds = c.Bind("Waves", "TimeLimitPerBirdSeconds", 2.5f,
+            WaveTimePerBirdSeconds = c.Bind("Waves", "WaveTimePerBirdSeconds", 6f,
                 "...plus this many per bird in the wave. When it runs out the flock leaves and the swarm is lost.");
             WaveBreakSeconds = c.Bind("Waves", "BreakSeconds", 6f, "Breather between waves.");
 
@@ -148,9 +148,9 @@ namespace SeagullSwarm
             ClimbSpeed = c.Bind("Dive", "ClimbSpeed", 18f, "Climb speed, m/s.");
             HoverMinSeconds = c.Bind("Dive", "HoverMinSeconds", 1.5f, "Shortest hover pause before a dive.");
             HoverMaxSeconds = c.Bind("Dive", "HoverMaxSeconds", 2.0f, "Longest hover pause before a dive.");
-            DiveDuration = c.Bind("Dive", "Duration", 1.15f,
+            DiveDuration = c.Bind("Dive", "DurationSeconds", 1.5f,
                 "Seconds the ballistic dive takes to reach the target. Lower is nastier.");
-            DiveGravity = c.Bind("Dive", "Gravity", 22f,
+            DiveGravity = c.Bind("Dive", "ArcGravity", 16f,
                 "Downward acceleration during the dive. Higher bends the parabola harder.");
             DiveOvershootFactor = c.Bind("Dive", "OvershootFactor", 1.4f,
                 "Dive is abandoned after Duration x this, so a miss does not chase forever.");

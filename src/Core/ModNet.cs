@@ -25,7 +25,7 @@ namespace Expanded
     internal static class ModNet
     {
         /// <summary>Bumped when the wire format changes incompatibly; mismatched peers are warned.</summary>
-        internal const int Protocol = 4;   // 2: UnlockChanged granted/revoked; 3: dialogue as lines, NpcSay; 4: SwarmStatus
+        internal const int Protocol = 6;   // 2: UnlockChanged granted/revoked; 3: dialogue as lines, NpcSay; 4: SwarmStatus; 6: SwarmStatus with wave size and time limit
 
         internal struct ModPacket : IBroadcast
         {
