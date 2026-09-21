@@ -113,6 +113,7 @@ Write-Host "`n-- Pirates: combat --"
 Check-Method "ExplosionManager"  "ServerExplode"      @("Item", "ExplosionInfo")
 Check-Method "ProjectileManager" "Hit"                @("Projectile", "ProjectileType", "RaycastHit")
 Check-Method "Item"              "GetExplosionInfo"   @()
+Check-Field  "ExplosionInfo"     "_underwaterFishMinMax" $null
 Check-Method "ExplosionInfo"     "get_DamageRadius"   @()
 Check-Method "ExplosionInfo"     "get_Damage"         @()
 Check-Method "ExplosionInfo"     "get_HasExploded"    @()

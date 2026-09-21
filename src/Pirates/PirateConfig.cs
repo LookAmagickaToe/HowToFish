@@ -46,6 +46,7 @@ namespace Expanded.Pirates
         public readonly ConfigEntry<float> CannonSpeed;
         public readonly ConfigEntry<float> CannonGravity;
         public readonly ConfigEntry<float> CannonballScale;
+        public readonly ConfigEntry<float> WaterFishChance;
 
         // --- damage to the ship ------------------------------------------------
         public readonly ConfigEntry<float> ExplosionDamageMultiplier;
@@ -134,6 +135,9 @@ namespace Expanded.Pirates
             CannonSpeed = c.Bind(G, "CannonSpeed", 42f, "Muzzle velocity in m/s.");
             CannonGravity = c.Bind(G, "CannonGravity", 9.81f, "Gravity on cannonballs.");
             CannonballScale = c.Bind(G, "CannonballScale", 1.6f, "Visual size of cannonballs.");
+            WaterFishChance = c.Bind(G, "WaterFishChance", 1f / 6f,
+                "Chance (0-1) that a cannonball landing in the water throws up stunned fish, like dynamite does. " +
+                "The splash and shock wave happen either way.");
 
             ExplosionDamageMultiplier = c.Bind(D, "ExplosionDamageMultiplier", 1f,
                 "Scales damage from explosions (your cannon, thrown dynamite) to the ship.");

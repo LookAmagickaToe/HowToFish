@@ -170,6 +170,9 @@ namespace Expanded.Pirates
         /// the game explode it. Underwater impacts go slightly below the surface so the game plays
         /// its water explosion, knocks the boat about and throws up stunned fish.
         /// </summary>
+        private static readonly System.Reflection.FieldInfo FishField =
+            HarmonyLib.AccessTools.Field(typeof(ExplosionInfo), "_underwaterFishMinMax");
+
         private static void Detonate(Ball b, Vector3 point, bool water)
         {
             NotifyImpact(b.Id);
@@ -195,6 +198,17 @@ namespace Expanded.Pirates
                     return;
                 }
 
+                // Dynamite in the water always throws up a handful of stunned fish. From a cannon that
+                // floods the sea with fish on every miss, so it only happens now and then. The value
+                // is restored afterwards in case the game pools and reuses this stick.
+                object fishBefore = null;
+                if (water && FishField != null &&
+                    UnityEngine.Random.value >= Mathf.Clamp01(PirateModule.Cfg.WaterFishChance.Value))
+                {
+                    fishBefore = FishField.GetValue(info);
+                    FishField.SetValue(info, Vector2Int.zero);
+                }
+
                 DetonatingPirateBall = b.FromPirates;
                 try
                 {
@@ -203,6 +217,7 @@ namespace Expanded.Pirates
                 finally
                 {
                     DetonatingPirateBall = false;
+                    if (fishBefore != null) FishField.SetValue(info, fishBefore);
                 }
 
                 Diag.Debug("Cannonball " + b.Id + (b.FromPirates ? " (pirate)" : " (crew)") + " hit " +
