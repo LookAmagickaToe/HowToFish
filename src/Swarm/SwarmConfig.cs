@@ -15,6 +15,11 @@ namespace SeagullSwarm
         public readonly ConfigEntry<float> ProvokeWindowSeconds;
         public readonly ConfigEntry<float> RetriggerCooldownSeconds;
 
+        // --- Lure (extra gulls while a quest needs them) ------------------
+        public readonly ConfigEntry<bool> LureEnabled;
+        public readonly ConfigEntry<int> LureMaxGulls;
+        public readonly ConfigEntry<float> LureIntervalSeconds;
+
         // --- Waves ---------------------------------------------------------
         public readonly ConfigEntry<int> WaveCount;
         public readonly ConfigEntry<int> FirstWaveSize;
@@ -97,6 +102,12 @@ namespace SeagullSwarm
                 "Length of the rolling window, in seconds. Kills older than this are forgotten.");
             RetriggerCooldownSeconds = c.Bind("Trigger", "RetriggerCooldownSeconds", 300f,
                 "Quiet period after an encounter ends before the flock can be provoked again.");
+
+            LureEnabled = c.Bind("Lure", "Enabled", true,
+                "While a story quest needs seagulls, ordinary gulls keep turning up near the players so " +
+                "there is always something to shoot.");
+            LureMaxGulls = c.Bind("Lure", "MaxGulls", 7, "How many extra gulls may be around at once.");
+            LureIntervalSeconds = c.Bind("Lure", "IntervalSeconds", 15f, "How often more gulls arrive, in seconds.");
 
             WaveCount = c.Bind("Waves", "WaveCount", 5, "Number of waves in a full encounter.");
             FirstWaveSize = c.Bind("Waves", "FirstWaveSize", 10, "Birds in wave 1.");

@@ -161,6 +161,7 @@ namespace SeagullSwarm
             PruneProvokeWindow();
             HandleTestControls();
             TickFleeing();
+            TickLure();
 
             switch (_phase)
             {
@@ -878,6 +879,67 @@ namespace SeagullSwarm
                 catch (Exception e) { Diag.Exception("Arrival scream", e); }
                 return;
             }
+        }
+
+        // ------------------------------------------------------------------ lure
+
+        private readonly List<Item> _lured = new List<Item>();
+        private float _nextLureAt;
+
+        /// <summary>
+        /// Wild gulls can be scarce, and both opening quests need them (feed three to Old Salt, then
+        /// five kills to call the flock). While either is running and no encounter is on, ordinary
+        /// gulls - the game's own, flying its own way - keep turning up near the players.
+        /// </summary>
+        private void TickLure()
+        {
+            SwarmConfig cfg = SwarmModule.Cfg;
+            if (_phase != Phase.Idle || !cfg.LureEnabled.Value || Time.time < _nextLureAt) return;
+            _nextLureAt = Time.time + Mathf.Max(3f, cfg.LureIntervalSeconds.Value);
+
+            if (!QuestWantsGulls()) return;
+            if (_gullPrefab == null && !ResolvePrefabs()) return;
+            if (_anchor == Vector3.zero) return;
+
+            _lured.RemoveAll(i => i == null || i.IsDestroying || i.IsDeinitializing ||
+                                  (i.Creature != null && i.Creature.IsDead));
+            int room = Mathf.Max(0, cfg.LureMaxGulls.Value) - _lured.Count;
+            int n = Mathf.Min(3, room);
+            if (n <= 0) return;
+
+            float water = 0f;
+            try { water = WaterManager.WaterHeight; } catch { }
+
+            // Arrive together from one direction, out at sea, not too far to reach with a gun.
+            float bearing = Random.Range(0f, 360f);
+            int ok = 0;
+            for (int k = 0; k < n; k++)
+            {
+                Vector3 dir = Quaternion.Euler(0f, bearing + Random.Range(-25f, 25f), 0f) * Vector3.forward;
+                Vector3 pos = _anchor + dir * Random.Range(22f, 38f);
+                pos.y = Mathf.Max(water, _anchor.y) + Random.Range(7f, 13f);
+                try
+                {
+                    Item gull = Instantiate(_gullPrefab, pos, Quaternion.LookRotation(-dir), Server.Instance.DynamicObjectsHolder);
+                    InstanceFinder.ServerManager.Spawn(gull.gameObject);
+                    _lured.Add(gull);
+                    ok++;
+                }
+                catch (Exception e)
+                {
+                    Diag.Exception("Lure gull", e);
+                    break;
+                }
+            }
+            if (ok > 0) Diag.Info("Lure: " + ok + " gull(s) flew in (" + _lured.Count + " around) for the story.");
+        }
+
+        private static bool QuestWantsGulls()
+        {
+            Expanded.Quests.QuestEngine e = Expanded.Quests.QuestModule.Instance?.Engine;
+            if (e == null) return false;
+            return e.Progress(Expanded.Content.PirateStory.QuestOmens).Status == Expanded.Quests.QuestStatus.Active ||
+                   e.Progress(Expanded.Content.PirateStory.QuestFlock).Status == Expanded.Quests.QuestStatus.Active;
         }
 
         private bool SpawnGull(Vector3 pos)
