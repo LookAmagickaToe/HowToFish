@@ -96,8 +96,9 @@ namespace Expanded.Pirates
 
                 // Pose: keel at the same depth the enemy ship floats at, bow towards the boat's bow.
                 float water = PirateModule.WaterY();
-                float bowSign = BowSign(boat);
-                Quaternion localRot = Quaternion.LookRotation(new Vector3(0f, 0f, bowSign), Vector3.up);
+                // The hull model's bow is its +Z; turn it to face the boat's bow, whichever local
+                // axis that is (the game's boat runs along X, not Z).
+                Quaternion localRot = Quaternion.LookRotation(BowLocal(boat), Vector3.up);
                 Vector3 keelWorld = new Vector3(visualRoot.position.x, water + PirateModule.Cfg.Waterline.Value, visualRoot.position.z);
                 Vector3 localPos = new Vector3(0f, visualRoot.InverseTransformPoint(keelWorld).y, 0f);
 
@@ -135,7 +136,7 @@ namespace Expanded.Pirates
 
                 BoatMount.Invalidate();
                 DeckCannon.ForceRebuild();
-                Diag.Info("PirateHull: fitted - " + HiddenRenderers.Count + " old meshes hidden, " +
+                Diag.Info("PirateHull: fitted facing " + BowLocal(boat) + " - " + HiddenRenderers.Count + " old meshes hidden, " +
                           AddedColliders.Count + " deck colliders, helm moved.");
             }
             catch (Exception e)
@@ -236,9 +237,10 @@ namespace Expanded.Pirates
         {
             if (boat.DriverPos == null) return;
 
+            // In hull space the bow is +Z (the hull was turned to face the boat's bow), so the stern,
+            // where the helm goes, is always towards -Z.
             Bounds hull = LocalBounds(_visual.transform);
-            float bowSign = BowSign(boat);
-            Vector3 helmHull = new Vector3(hull.center.x, hull.max.y, hull.center.z - bowSign * hull.extents.z * 0.55f);
+            Vector3 helmHull = new Vector3(hull.center.x, hull.max.y, hull.center.z - hull.extents.z * 0.55f);
             Vector3 helmWorldTop = _visual.transform.TransformPoint(helmHull);
 
             // Deck height under the helm, measured on the colliders we just built.
@@ -325,11 +327,29 @@ namespace Expanded.Pirates
 
         // ------------------------------------------------------------------ helpers
 
-        private static float BowSign(Boat boat)
+        /// <summary>
+        /// The boat's bow as a unit axis in its visual frame. Same rule as the deck gun: the driver faces
+        /// the bow; the outboard motor must sit at the other end, or it wins.
+        /// </summary>
+        internal static Vector3 BowLocal(Boat boat)
         {
+            Transform visual = boat.VisualBoat != null ? boat.VisualBoat : boat.transform;
+            Vector3 f = Vector3.zero;
+            try { if (boat.DriverPos != null) f = visual.InverseTransformDirection(boat.DriverPos.forward); } catch { }
+            f.y = 0f;
+
+            bool alongX = f.sqrMagnitude > 0.1f && Mathf.Abs(f.x) > Mathf.Abs(f.z);
+            float sign = f.sqrMagnitude > 0.1f ? Mathf.Sign(alongX ? f.x : f.z) : 1f;
+
             BoatMotor motor = boat.GetComponentInChildren<BoatMotor>(true);
-            if (motor == null || boat.VisualBoat == null) return 1f;
-            return boat.VisualBoat.InverseTransformPoint(motor.transform.position).z > 0f ? -1f : 1f;
+            if (motor != null)
+            {
+                Vector3 m = visual.InverseTransformPoint(motor.transform.position);
+                float along = alongX ? m.x : m.z;
+                if (f.sqrMagnitude <= 0.1f) sign = along > 0f ? -1f : 1f;         // no driver seat: motor decides
+                else if (Mathf.Abs(along) > 0.2f && Mathf.Sign(along) == sign) sign = -sign;   // motor can't be at the bow
+            }
+            return (alongX ? Vector3.right : Vector3.forward) * sign;
         }
 
         /// <summary>Bounds of all renderers under <paramref name="root"/>, in root's local space.</summary>

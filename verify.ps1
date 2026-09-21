@@ -203,6 +203,10 @@ Check-Method "RigidbodySync"  "get_OnBoat"      @()
 Check-Method "ItemManager"    "get_Items"       @()
 Check-Method "OnlineIslandManager" "get_CurIsland" @()
 
+Write-Host "`n-- The chart handed out as the game's map --"
+if ($module.GetType("Map")) { Write-Host "  ok    type Map (the handheld map with a radar)" -ForegroundColor Green }
+else { Write-Host "  FAIL  type Map missing - nobody gets a map for the chart's mark" -ForegroundColor Red; $fail++ }
+
 Write-Host "`n-- Swarm on the game's boss bar --"
 Check-Field  "PlayerUI" "_bossUI" $null
 foreach ($f in @("_bossCanvasLerped", "_bossNameText", "_bossHealth", "_bossHealthLerped", "_timeLeftImage", "_countdownGroup", "_timeCountdownText")) {

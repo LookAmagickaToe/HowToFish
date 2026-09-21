@@ -122,6 +122,7 @@ namespace Expanded.Pirates
                 Cannonballs.ServerTick(dt);
                 ChartSite.ServerTick();
                 TickRaids();
+                TickChartMap();
             }
 
             Cannonballs.ClientTick(dt);
@@ -346,7 +347,7 @@ namespace Expanded.Pirates
                 Diag.Info("Pirates: ship spawned (" + (story ? "story" : "raid") + ") at " + pos.ToString("F1") + ".");
                 Announce(story
                     ? "A sail with a gull on it - the Greedy Gull was waiting at the mark! Man the bow gun (E), and shoot Captain Squawk if you can."
-                    : "A ship flying no colours is closing fast. Word of your money travels.");
+                    : "The Greedy Gull comes about - Captain Squawk wants your barbecue! Man the gun (E)!");
                 return true;
             }
             catch (Exception e)
@@ -489,6 +490,70 @@ namespace Expanded.Pirates
             int food = GrilledFoodOnBoard().Count;
             Announce("A ship with a gull on its flag turns towards you. They can smell your barbecue (" + food + " grilled)!");
             SpawnShip(false);
+        }
+
+        // ------------------------------------------------------------------ the chart as a map (host)
+
+        private const string ChartMapGivenKey = "chart.map.given";
+        private float _nextMapCheck;
+
+        /// <summary>
+        /// The chart's mark only shows on the game's radar (boat radar or handheld map). So the moment
+        /// the chart turns up, every player gets the game's own handheld map - once per save - and the
+        /// red dot on it leads to the buoy. Saves that found the chart before this existed get theirs
+        /// on the next load.
+        /// </summary>
+        private void TickChartMap()
+        {
+            if (Time.time < _nextMapCheck) return;
+            _nextMapCheck = Time.time + 2f;
+
+            QuestEngine engine = QuestModule.Instance?.Engine;
+            if (engine == null || !engine.HasFlag(PirateStory.FlagChart)) return;
+            if (ModSave.Counter(ChartMapGivenKey) > 0) return;
+            if (ItemManager.Instance == null || PlayerManager.AlivePlayers.Count == 0) return;
+
+            Item map = FindMapPrefab();
+            if (map == null)
+            {
+                Diag.Warn("Pirates: the game's map item was not found; players need the boat radar to see the chart's mark.");
+                ModSave.SetCounter(ChartMapGivenKey, 1);
+                return;
+            }
+
+            int given = 0;
+            foreach (Player p in PlayerManager.AlivePlayers)
+            {
+                if (p == null) continue;
+                try
+                {
+                    Vector3 at = p.Transform.position + p.Transform.forward * 0.8f + Vector3.up * 1.2f;
+                    if (ItemManager.Instance.SpawnNewItem(map, at, Quaternion.identity) != null) given++;
+                }
+                catch (Exception e)
+                {
+                    Diag.Exception("Pirates: give chart map", e);
+                }
+            }
+            if (given == 0) return;
+
+            ModSave.SetCounter(ChartMapGivenKey, 1);
+            Diag.Info("Pirates: handed out " + given + " map(s) ('" + map.name + "') for the chart's mark.");
+            Announce("The chart is copied onto a map for each of you - pick it up. The red dot on its radar marks the spot.");
+        }
+
+        private static Item FindMapPrefab()
+        {
+            try
+            {
+                foreach (Item item in Resources.LoadAll<Item>("Items"))
+                    if (item is Map) return item;
+            }
+            catch (Exception e)
+            {
+                Diag.Exception("Pirates: find map item", e);
+            }
+            return null;
         }
 
         /// <summary>Cooked animals lying in the boat (not the ones in someone's hands).</summary>
