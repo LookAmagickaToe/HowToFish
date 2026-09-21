@@ -270,7 +270,30 @@ namespace Expanded.Pirates
             root.transform.localRotation = localRot;
             AddedColliderRoots.Add(root);
 
-            foreach (MeshFilter mf in _visual.GetComponentsInChildren<MeshFilter>(true))
+            // Solid boxes shaped to the deck: a floor that follows the hull, rails along the sides,
+            // walls at bow and stern. Boxes work under both holders (the item holder is a moving
+            // rigidbody, where Unity refuses concave mesh colliders - items fell straight through),
+            // and players get a flat, reliable floor instead of the model's thin shell and rigging.
+            List<HullBox> boxes = MeasureHullBoxes();
+            if (boxes.Count > 0)
+            {
+                root.transform.localScale = _visual.transform.localScale;
+                foreach (HullBox hb in boxes)
+                {
+                    var part = new GameObject(hb.Name);
+                    part.layer = layer;
+                    part.transform.SetParent(root.transform, false);
+                    part.transform.localPosition = hb.Center;
+                    part.transform.localRotation = hb.Rot;
+                    BoxCollider bc = part.AddComponent<BoxCollider>();
+                    bc.size = hb.Size;
+                    if (material != null) bc.sharedMaterial = material;
+                    AddedColliders.Add(bc);
+                    if (register && !BoatManager.ColToBoat.ContainsKey(bc)) BoatManager.ColToBoat.Add(bc, _boat);
+                }
+            }
+            // Only if the deck could not be measured: the model's own meshes, players' holder only.
+            else if (register) foreach (MeshFilter mf in _visual.GetComponentsInChildren<MeshFilter>(true))
             {
                 if (mf.sharedMesh == null) continue;
                 var part = new GameObject("part");
@@ -298,6 +321,118 @@ namespace Expanded.Pirates
                     DisabledColliders.Add(c);
                 }
             }
+        }
+
+        private struct HullBox
+        {
+            public string Name;
+            public Vector3 Center, Size;
+            public Quaternion Rot;
+        }
+
+        private static List<HullBox> _hullBoxes;
+
+        /// <summary>
+        /// Measures the hull model once (a throwaway copy far below the world, with mesh colliders)
+        /// and turns its deck into boxes, in the model's own space. Slices along the length: deck
+        /// height on the centreline, then out to either side as far as the deck stays level.
+        /// </summary>
+        private static List<HullBox> MeasureHullBoxes()
+        {
+            if (_hullBoxes != null) return _hullBoxes;
+            var boxes = new List<HullBox>();
+            GameObject probe = ModAssets.Create(PirateModule.Cfg.Model.Value, new Vector3(0f, -5000f, 0f), Quaternion.identity, null, solid: true);
+            if (probe == null) return boxes;
+
+            try
+            {
+                Physics.SyncTransforms();
+                Transform root = probe.transform;
+                Bounds hb = LocalBounds(root);
+                float lowerHalf = hb.min.y + hb.size.y * 0.5f;
+
+                Func<float, float, float?> deckAt = (x, z) =>
+                {
+                    Vector3 origin = root.TransformPoint(new Vector3(x, hb.max.y + 2f, z));
+                    float? found = null;
+                    float best = float.MaxValue;
+                    foreach (RaycastHit h in Physics.RaycastAll(origin, Vector3.down, hb.size.y + 4f, ~0, QueryTriggerInteraction.Ignore))
+                    {
+                        if (h.collider == null || !h.collider.transform.IsChildOf(root)) continue;
+                        float y = root.InverseTransformPoint(h.point).y;
+                        if (y > lowerHalf) continue;                      // rigging, sails, masts
+                        if (h.distance < best) { best = h.distance; found = y; }
+                    }
+                    return found;
+                };
+
+                const int n = 16;
+                float step = hb.size.z / n;
+                var zs = new List<float>();
+                var ys = new List<float>();
+                var halves = new List<float>();
+                for (int i = 0; i < n; i++)
+                {
+                    float z = hb.min.z + step * (i + 0.5f);
+                    float? cy = deckAt(hb.center.x, z);
+                    if (!cy.HasValue) continue;
+                    float half = 0f;
+                    for (float x = 0.2f; x <= hb.extents.x; x += 0.2f)
+                    {
+                        float? a = deckAt(hb.center.x + x, z), b = deckAt(hb.center.x - x, z);
+                        if (a.HasValue && b.HasValue && Mathf.Abs(a.Value - cy.Value) < 0.45f && Mathf.Abs(b.Value - cy.Value) < 0.45f) half = x;
+                        else break;
+                    }
+                    if (half < 0.4f) continue;
+                    zs.Add(z); ys.Add(cy.Value); halves.Add(half);
+                }
+
+                for (int i = 0; i < zs.Count; i++)
+                {
+                    float z = zs[i], y = ys[i], half = halves[i];
+                    boxes.Add(new HullBox { Name = "deck", Center = new Vector3(hb.center.x, y - 0.2f, z), Size = new Vector3(half * 2f + 0.1f, 0.4f, step + 0.06f), Rot = Quaternion.identity });
+                    foreach (float side in new[] { -1f, 1f })
+                        boxes.Add(new HullBox { Name = "rail", Center = new Vector3(hb.center.x + side * (half + 0.08f), y + 0.5f, z), Size = new Vector3(0.16f, 1f, step + 0.06f), Rot = Quaternion.identity });
+
+                    bool firstOfRun = i == 0 || zs[i] - zs[i - 1] > step * 1.5f;
+                    bool lastOfRun = i == zs.Count - 1 || zs[i + 1] - zs[i] > step * 1.5f;
+                    if (firstOfRun)
+                        boxes.Add(new HullBox { Name = "stern-wall", Center = new Vector3(hb.center.x, y + 0.5f, z - step * 0.5f), Size = new Vector3(half * 2f, 1f, 0.16f), Rot = Quaternion.identity });
+                    if (lastOfRun)
+                        boxes.Add(new HullBox { Name = "bow-wall", Center = new Vector3(hb.center.x, y + 0.5f, z + step * 0.5f), Size = new Vector3(half * 2f, 1f, 0.16f), Rot = Quaternion.identity });
+
+                    // A ramp up to a raised deck, so it can be walked rather than jumped.
+                    if (!lastOfRun)
+                    {
+                        float dy = ys[i + 1] - y;
+                        if (Mathf.Abs(dy) > 0.15f && Mathf.Abs(dy) < 1.6f)
+                        {
+                            float dz = zs[i + 1] - z;
+                            Vector3 dir = new Vector3(0f, dy, dz);
+                            boxes.Add(new HullBox
+                            {
+                                Name = "ramp",
+                                Center = new Vector3(hb.center.x, (y + ys[i + 1]) * 0.5f - 0.15f, (z + zs[i + 1]) * 0.5f),
+                                Size = new Vector3(Mathf.Min(half, halves[i + 1]) * 1.2f, 0.3f, dir.magnitude + 0.2f),
+                                Rot = Quaternion.LookRotation(dir.normalized, Vector3.up)
+                            });
+                        }
+                    }
+                }
+                Diag.Info("PirateHull: deck measured into " + boxes.Count + " boxes (" + zs.Count + " slices, deck " +
+                          (ys.Count > 0 ? ys[0].ToString("0.0") + " to " + ys[ys.Count - 1].ToString("0.0") : "?") + " m above the keel line).");
+            }
+            catch (Exception e)
+            {
+                Diag.Exception("PirateHull.MeasureHullBoxes", e);
+                boxes.Clear();
+            }
+            finally
+            {
+                UnityEngine.Object.Destroy(probe);
+            }
+            _hullBoxes = boxes;
+            return boxes;
         }
 
         private static void EnlargeTrigger(Boat boat, Vector3 localPos, Quaternion localRot)
