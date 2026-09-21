@@ -803,7 +803,12 @@ namespace SeagullSwarm
             if (_phase != Phase.Idle || !cfg.LureEnabled.Value || Time.time < _nextLureAt) return;
             _nextLureAt = Time.time + Mathf.Max(3f, cfg.LureIntervalSeconds.Value);
 
-            if (!QuestWantsGulls()) return;
+            // During a gull job the sky fills up; otherwise a few gulls are always about (from the island
+            // that sells guns on), so the swarm can be called - and called again - at any time.
+            int target;
+            if (QuestWantsGulls()) target = Mathf.Max(0, cfg.LureMaxGulls.Value);
+            else if (CurrentIsland() >= Expanded.Content.PirateStory.IslandWithGuns) target = Mathf.Max(0, cfg.LureAmbient.Value);
+            else return;
             if (_gullPrefab == null && !ResolvePrefabs()) return;
             if (_anchor == Vector3.zero) return;
 
@@ -826,7 +831,7 @@ namespace SeagullSwarm
                 try { g.DestroyItem((byte)DestroyReason.Immediate); } catch (Exception e) { Diag.Exception("Lure: clear stray", e); }
             }
 
-            int n = Mathf.Min(4, Mathf.Max(0, cfg.LureMaxGulls.Value) - nearby);
+            int n = Mathf.Min(4, target - nearby);
             if (n <= 0) return;
 
             int ok = SpawnLureGulls(n);
@@ -887,6 +892,11 @@ namespace SeagullSwarm
 
             int ok = SpawnLureGulls(due);
             if (ok > 0) Diag.Info("Lure: " + ok + " replacement gull(s) flew in after a kill.");
+        }
+
+        private static int CurrentIsland()
+        {
+            try { return OnlineIslandManager.CurIsland; } catch { return 0; }
         }
 
         private static bool QuestWantsGulls()
