@@ -42,6 +42,7 @@ namespace Expanded.Megalodon
         private static float _wrapRadius, _wrapTurned, _wrapSign;
         private static float _rodeoUntil = -1f;
         private static float _rodeoCooldown;
+        private static bool _rodeoJump;
         private static bool _chargePlanted;
         private static float _lastBite = -99f;
         private static float _lastNearMiss = -99f;
@@ -188,7 +189,7 @@ namespace Expanded.Megalodon
                 r = _p - tow;
                 dist = r.magnitude;
                 u = dist > 1e-3f ? r / dist : -fwd;
-                if (dist > rope)
+                if (dist > rope && !_rodeoJump)
                 {
                     _p = tow + u * rope;
                     dist = rope;
@@ -202,7 +203,7 @@ namespace Expanded.Megalodon
                 Vector3 back = -fwd;
                 float ang = Vector3.SignedAngle(back, u, Vector3.up);
                 float max = Mathf.Clamp(c.MaxRopeAngle.Value, 20f, 88f);
-                if (Mathf.Abs(ang) > max)
+                if (!_rodeoJump && Mathf.Abs(ang) > max)
                 {
                     Vector3 uc = Quaternion.AngleAxis(Mathf.Sign(ang) * max, Vector3.up) * back;
                     _p = tow + uc * dist;
@@ -259,6 +260,20 @@ namespace Expanded.Megalodon
                 if (!jump && lateral > 3.5f) Launch(2.2f, null);
             }
             _prevSide = side;
+
+            Vector3 sharkBack, sharkVel;
+            if (jump && _planing && !_air && !InRodeo && SharkVisual.RodeoReach(_p, out sharkBack, out sharkVel))
+            {
+                // Aimed at its back: the jump carries you over and down onto it.
+                float vy = c.JumpSpeed.Value * 1.15f;
+                float air = 2f * vy / Mathf.Max(1f, c.Gravity.Value);
+                Vector3 land = new Vector3(sharkBack.x, 0f, sharkBack.z) + new Vector3(sharkVel.x, 0f, sharkVel.z) * air;
+                _v = (land - _p) / air;
+                _rodeoJump = true;
+                Launch(vy, null);
+                MegaFx.Banner("YEEEEHAW-", new Color(1f, 0.85f, 0.3f), 0.8f);
+                jump = false;
+            }
 
             if (jump && _planing && !_air)
             {
@@ -346,7 +361,9 @@ namespace Expanded.Megalodon
             _spinTarget = 0f;
 
             // Landed on its back? Ask the host - it has the megalodon, so it decides.
-            if (Time.time > _rodeoCooldown && SharkVisual.CanRodeo(body + Vector3.down * FeetOffset))
+            bool aimed = _rodeoJump;
+            _rodeoJump = false;
+            if (Time.time > _rodeoCooldown && SharkVisual.CanRodeo(body + Vector3.down * FeetOffset, aimed))
             {
                 _rodeoCooldown = Time.time + 1.5f;
                 ModNet.SendToServer(Msg.Rodeo, w => w.Write((byte)0));

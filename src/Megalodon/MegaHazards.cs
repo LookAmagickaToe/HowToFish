@@ -118,18 +118,17 @@ namespace Expanded.Megalodon
             switch (h)
             {
                 case Hazard.FlyingFish:
-                    Send(HzKind.FlyingFish, Flat(riderPos + riderVel * 1.7f), side * sign, UnityEngine.Random.Range(9, 15), 5f);
-                    MegaModule.Announce("Flying fish! Heads down!");
+                    // Dir carries the rider's velocity: the school comes at them head-on.
+                    Send(HzKind.FlyingFish, Flat(riderPos), new Vector3(riderVel.x, 0f, riderVel.z), UnityEngine.Random.Range(10, 15), 6f);
                     break;
                 case Hazard.Jellyfish:
-                    Send(HzKind.Jellyfish, Flat(boat + fwd * 60f + boatSide * UnityEngine.Random.Range(-6f, 6f)), fwd, 18, 50f);
-                    MegaModule.Announce("Jellyfish ahead. Don't touch the pink ones. They're all pink.");
+                    Send(HzKind.Jellyfish, Flat(riderPos + travel * (speed * 4f)), travel, 16, 40f);
                     break;
                 case Hazard.Buoy:
-                    Send(HzKind.Buoy, Flat(boat + fwd * 55f + boatSide * sign * UnityEngine.Random.Range(3.5f, 7f)), fwd, 1, 60f);
+                    Send(HzKind.Buoy, Flat(boat + fwd * 45f + boatSide * sign * UnityEngine.Random.Range(2.2f, 3.5f)), fwd, 1, 50f);
                     break;
                 case Hazard.Ramp:
-                    Send(HzKind.Ramp, Flat(riderPos + travel * (speed * 3.2f) + side * UnityEngine.Random.Range(-3f, 3f)), travel, 1, 45f);
+                    Send(HzKind.Ramp, Flat(riderPos + travel * (speed * 3f) + side * UnityEngine.Random.Range(-1.2f, 1.2f)), travel, 1, 40f);
                     break;
                 case Hazard.FogBank:
                     if (MegaModule.Cfg.FogBanks.Value)
@@ -232,20 +231,31 @@ namespace Expanded.Megalodon
             {
                 case HzKind.FlyingFish:
                 {
-                    Vector3 across = h.Dir.normalized;
-                    Vector3 along = Vector3.Cross(across, Vector3.up);
+                    // Head-on at the rider: each fish is aimed at where they'll be, at chest height.
+                    // Half of them dead centre, half a little off - carve or jump.
+                    Vector3 v = h.Dir;
+                    float spd = v.magnitude;
+                    Vector3 fwd = spd > 1f ? v / spd : Vector3.forward;
+                    Vector3 side = Vector3.Cross(Vector3.up, fwd);
                     for (int i = 0; i < h.Count; i++)
                     {
                         Transform f = MegaShapes.FlyingFish(h.Root);
                         f.gameObject.SetActive(false);
-                        Vector3 start = h.Pos - across * Range(rng, 8f, 12f) + along * Range(rng, -6f, 6f);
-                        Vector3 vel = across * Range(rng, 9f, 13f) + Vector3.up * Range(rng, 4.5f, 6.5f);
+                        float delay = Range(rng, 0.8f, 3.4f);
+                        float tf = Range(rng, 0.8f, 1.1f);
+                        Vector3 hit = h.Pos + v * (delay + tf) + side * (i % 2 == 0 ? Range(rng, -0.4f, 0.4f) : Range(rng, -3f, 3f));
+                        hit.y = h.Pos.y + Range(rng, 1.1f, 1.9f);
+                        Vector3 start = hit + fwd * Range(rng, 9f, 13f) + side * Range(rng, -1f, 1f);
+                        start.y = h.Pos.y;
+                        Vector3 vel = (hit - start) / tf;
+                        vel.y = (hit.y - start.y) / tf + 0.5f * FishGravity * tf;
                         h.Parts.Add(f);
                         h.Offsets.Add(start);
                         h.Vels.Add(vel);
-                        h.Delays.Add(Range(rng, 0f, 1.8f));
+                        h.Delays.Add(delay);
                         h.Spent.Add(false);
                     }
+                    Warn("FLYING FISH INCOMING!", h.Pos);
                     break;
                 }
                 case HzKind.Jellyfish:
@@ -253,7 +263,7 @@ namespace Expanded.Megalodon
                     for (int i = 0; i < h.Count; i++)
                     {
                         float a = Range(rng, 0f, Mathf.PI * 2f);
-                        float d = Mathf.Sqrt(Range(rng, 0f, 1f)) * 16f;
+                        float d = Mathf.Sqrt(Range(rng, 0f, 1f)) * 11f;
                         Vector3 off = new Vector3(Mathf.Cos(a) * d, 0f, Mathf.Sin(a) * d);
                         Transform j = MegaShapes.Jellyfish(h.Root, Range(rng, 0.8f, 1.3f));
                         j.localPosition = off;
@@ -262,10 +272,12 @@ namespace Expanded.Megalodon
                         h.Delays.Add(Range(rng, 0f, 6f));
                         h.Spent.Add(false);
                     }
+                    Warn("JELLYFISH AHEAD!", h.Pos);
                     break;
                 }
                 case HzKind.Buoy:
                     h.Parts.Add(MegaShapes.Buoy(h.Root));
+                    Warn("BUOY! SWING THE ROPE ROUND IT!", h.Pos);
                     break;
                 case HzKind.Ramp:
                 {
@@ -273,6 +285,10 @@ namespace Expanded.Megalodon
                     Vector3 d = new Vector3(h.Dir.x, 0f, h.Dir.z);
                     ramp.rotation = Quaternion.LookRotation(d.sqrMagnitude > 1e-3f ? d.normalized : Vector3.forward);
                     h.Parts.Add(ramp);
+                    // A tall flag so you can see it coming.
+                    MegaShapes.Prim(PrimitiveType.Cylinder, ramp, new Vector3(1.2f, 1.6f, 1.4f), new Vector3(0.05f, 1.6f, 0.05f), MegaShapes.Charcoal);
+                    MegaShapes.Prim(PrimitiveType.Cube, ramp, new Vector3(1.2f, 2.9f, 1.75f), new Vector3(0.03f, 0.45f, 0.7f), MegaShapes.BoardOrange, null, 0.6f);
+                    Warn("RAMP AHEAD!", h.Pos);
                     break;
                 }
                 case HzKind.Mine:
@@ -284,6 +300,15 @@ namespace Expanded.Megalodon
         }
 
         private static float Range(System.Random r, float a, float b) => a + (float)r.NextDouble() * (b - a);
+
+        /// <summary>A heads-up for the wakeboarder, if it's anywhere near them.</summary>
+        private static void Warn(string text, Vector3 at)
+        {
+            if (!Wakeboard.Riding) return;
+            Vector3 me = PlayerHold.Pose;
+            if (new Vector2(at.x - me.x, at.z - me.z).magnitude > 90f) return;
+            MegaFx.Banner(text, new Color(0.7f, 0.95f, 1f), 1.6f);
+        }
 
         private static void Remove(ushort id, bool boom)
         {
@@ -448,7 +473,7 @@ namespace Expanded.Megalodon
                     {
                         if (now - h.LastTouch < 2f || Wakeboard.Airborne) break;
                         Vector3 local = Quaternion.Inverse(h.Parts.Count > 0 ? h.Parts[0].rotation : Quaternion.identity) * (feet - h.Pos);
-                        if (Mathf.Abs(local.x) > 1.15f || local.z < -1.7f || local.z > 1.7f) break;
+                        if (Mathf.Abs(local.x) > 1.6f || local.z < -1.9f || local.z > 1.9f) break;
                         float along = Vector3.Dot(Wakeboard.FlatVelocity, h.Dir.normalized);
                         if (along < 3f) break;
                         h.LastTouch = now;

@@ -301,6 +301,17 @@ namespace Expanded.Megalodon
                 }
                 return;
             }
+            if (_rider != null && now < _alongsideUntil)
+            {
+                // Right beside the rider, close enough to jump on. Then a sideways snap.
+                Vector3 dir = TravelDir();
+                Vector3 side = Vector3.Cross(Vector3.up, dir) * _alongsideSide;
+                Steer(dt, _riderPos + side * 3.4f - dir * (MouthOffset * 0.35f), _riderVel);
+                _pos.y = Mathf.Lerp(_pos.y, PirateModule.WaterY() - Cfg.SwimDepth.Value, dt * 3f);
+                if (now + dt >= _alongsideUntil) { _nextChomp = now + 2.6f; Chomp(); }
+                return;
+            }
+
             float want = MegaRules.PreferredDistance(Tow.Speed(), MegaModule.SafeSpeed, Cfg.ChaseDistance.Value, Cfg.CloseDistance.Value);
             Follow(dt, want, 0f);
 
@@ -382,6 +393,7 @@ namespace Expanded.Megalodon
                 case Attack.PlayDead: PlayDead(); break;
                 case Attack.SternChomp: SternChomp(); break;
                 case Attack.JumpOver: JumpOver(); break;
+                case Attack.Alongside: StartAlongside(); break;
             }
         }
 
@@ -415,8 +427,20 @@ namespace Expanded.Megalodon
             Run(new SharkEvent
             {
                 Kind = EvKind.Lunge, From = _pos, A = a, B = b,
-                Telegraph = T, Duration = D, Apex = breach ? 3.4f : 0.5f, Snap = S, Style = style
+                Telegraph = T, Duration = D, Apex = breach ? 3.4f : 0.5f, Snap = S, Style = style,
+                Target = _rider.OwnerId
             }, null);
+        }
+
+        private static float _alongsideUntil, _alongsideSide = 1f;
+
+        /// <summary>Swims up right beside the rider: the chance to jump on its back.</summary>
+        private static void StartAlongside()
+        {
+            if (_rider == null) return;
+            _alongsideSide = UnityEngine.Random.value < 0.5f ? -1f : 1f;
+            _alongsideUntil = Time.time + 4.5f;
+            Send(new SharkEvent { Kind = EvKind.Alongside, Extra = _rider.OwnerId });
         }
 
         private static void Chomp()
@@ -429,7 +453,8 @@ namespace Expanded.Megalodon
             Run(new SharkEvent
             {
                 Kind = EvKind.Chomp, From = _pos, A = a, B = b,
-                Telegraph = 0.35f, Duration = 0.55f, Apex = 0.6f, Snap = 0.6f, Style = SharkEvent.StyleSmall
+                Telegraph = 0.35f, Duration = 0.55f, Apex = 0.6f, Snap = 0.6f, Style = SharkEvent.StyleSmall,
+                Target = _rider.OwnerId, LockFrac = 1f
             }, null);
         }
 
@@ -650,6 +675,7 @@ namespace Expanded.Megalodon
         {
             if (_ev == null) { SetMode(SharkMode.Chase); return; }
             float t = now - _ev.Start;
+            if (_ev.Target >= 0 && _rider != null) _ev.Track(t, Time.deltaTime, _riderPos, Tow.Velocity());
             Vector3 body; Quaternion rot; bool sub;
             _ev.Pose(t, MouthOffset, out body, out rot, out sub);
             Vector3 f = rot * Vector3.forward;
@@ -717,8 +743,12 @@ namespace Expanded.Megalodon
             }
             catch (Exception e) { Diag.Debug("HitBoat: " + e.Message); }
 
+            int hurt = Mathf.Max(0, Cfg.BoatHitDamage.Value);
             foreach (Player p in PlayersOnBoat())
+            {
                 try { p.Movement.RPCKnockback(p.Owner, Flat(dir).normalized * 4f + Vector3.up * 3.5f); } catch { }
+                if (hurt > 0) Hurt(p, hurt, at);
+            }
 
             if (engine) MegaBoat.HostDamageEngine();
             MegaModule.Announce(engine ? "It bit the stern! The engine's coughing smoke!" : "It rammed the bow!");
@@ -758,11 +788,20 @@ namespace Expanded.Megalodon
                 Board next = MegaRules.Next(WakeRig.Tier);
                 if (next == Board.Eaten) { Eat(p); return; }
                 WakeRig.HostSetTier(next);
+                Hurt(p, Mathf.Max(0, Cfg.BiteDamage.Value), p.Transform.position);
                 Send(new SharkEvent { Kind = EvKind.Bitten, Extra = p.OwnerId, Style = (byte)next });
                 MegaModule.Announce(p.SteamName + " got bitten! Now riding: " + MegaRules.BoardName(next) + ".");
                 return;
             }
             Eat(p);
+        }
+
+        /// <summary>Real damage through the game's own hit path: blood, sound, and yes, you can die.</summary>
+        private static void Hurt(Player p, int damage, Vector3 at)
+        {
+            if (p == null || damage <= 0 || p.Dying.IsDead) return;
+            try { Server.Instance.HitPlayer(p, damage, Vector3.up * 2f, at, (byte)DamageType.Bite, null); }
+            catch (Exception e) { Diag.Debug("Megalodon hurt: " + e.Message); }
         }
 
         private static void Eat(Player p)

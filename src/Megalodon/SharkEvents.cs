@@ -40,7 +40,8 @@ namespace Expanded.Megalodon
         Appear,
         Phase,          // Extra = new phase
         Eaten,          // Extra = owner id of whoever it ate
-        Bitten          // Extra = owner id, Style = the board they're down to
+        Bitten,         // Extra = owner id, Style = the board they're down to
+        Alongside       // Extra = owner id of the rider it swims up beside
     }
 
     /// <summary>
@@ -61,6 +62,13 @@ namespace Expanded.Megalodon
         public float Telegraph, Duration, Apex, Snap;
         public int Extra;
         public byte Style;
+
+        /// <summary>Owner id of the player a strike homes on, -1 for none.</summary>
+        public int Target = -1;
+        /// <summary>Fraction of the telegraph after which it stops tracking and commits.</summary>
+        public float LockFrac = 0.55f;
+        /// <summary>How far the strike has been moved (flat) to follow its target. Same on every machine, give or take lag.</summary>
+        public Vector3 Shift;
 
         /// <summary>Local time this machine started playing it.</summary>
         public float Start;
@@ -89,7 +97,23 @@ namespace Expanded.Megalodon
 
         public float SnapTime => Telegraph + Snap * Duration;
 
-        public Vector3 Mouth(float u) => Vector3.Lerp(A, B, u) + Vector3.up * (Apex * 4f * u * (1f - u));
+        public Vector3 Mouth(float u) => Vector3.Lerp(A, B, u) + Shift + Vector3.up * (Apex * 4f * u * (1f - u));
+
+        /// <summary>
+        /// Homing: while under water it keeps adjusting the strike to where its target will be when
+        /// the jaws shut (current position carried along at the boat's speed); at LockFrac of the
+        /// telegraph it commits. Doing nothing gets you bitten; a hard carve after that dodges it.
+        /// </summary>
+        public void Track(float t, float dt, Vector3 target, Vector3 carrierVel)
+        {
+            if (Target < 0 || t >= Telegraph * LockFrac) return;
+            Vector3 expected = target + carrierVel * Mathf.Max(0f, SnapTime - t);
+            Vector3 unshifted = Vector3.Lerp(A, B, Snap);
+            Vector3 want = expected - unshifted;
+            want.y = 0f;
+            want = Vector3.ClampMagnitude(want, 14f);
+            Shift = Vector3.MoveTowards(Shift, want, 25f * Mathf.Max(dt, 0.001f));
+        }
 
         public Vector3 Tangent(float u)
         {
@@ -163,7 +187,7 @@ namespace Expanded.Megalodon
                 // the moment it breaks the surface.
                 Vector3 tan0 = Tangent(0f);
                 Vector3 dirA = Flat(tan0, Vector3.forward);
-                Vector3 end = A - tan0 * mouthOffset;
+                Vector3 end = A + Shift - tan0 * mouthOffset;
                 float s = Mathf.SmoothStep(0f, 1f, t / Mathf.Max(0.01f, Telegraph));
                 body = Vector3.Lerp(From, end, s);
                 float deep = Mathf.Min(water - 3.5f, end.y);
@@ -197,6 +221,8 @@ namespace Expanded.Megalodon
             w.Write(Snap);
             w.Write(Extra);
             w.Write(Style);
+            w.Write(Target);
+            w.Write(LockFrac);
         }
 
         public static SharkEvent Read(BinaryReader r)
@@ -213,7 +239,9 @@ namespace Expanded.Megalodon
                 Apex = r.ReadSingle(),
                 Snap = r.ReadSingle(),
                 Extra = r.ReadInt32(),
-                Style = r.ReadByte()
+                Style = r.ReadByte(),
+                Target = r.ReadInt32(),
+                LockFrac = r.ReadSingle()
             };
         }
     }

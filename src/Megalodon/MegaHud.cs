@@ -84,6 +84,10 @@ namespace Expanded.Megalodon
             string line2 = Wakeboard.InRodeo ? "RODEO!   F  plant a charge     Space  jump off"
                           : "A/D  carve     Space  jump (time it on the wake!)     E  let go     G  shout";
             if (!Wakeboard.Planing && !Wakeboard.Airborne) line2 = "Waiting for the boat to pull you up...   E  let go";
+            Vector3 back, sv;
+            if (fight && Wakeboard.Planing && !Wakeboard.Airborne && !Wakeboard.InRodeo &&
+                SharkVisual.RodeoReach(PlayerHold.Pose, out back, out sv))
+                line2 = "SPACE  JUMP ON THE MEGALODON!";
             if (MegaBoat.SeenAutopilot) line2 += "\nOld Salt is driving:  hold A or D + G = LEFT/RIGHT,  G alone = FASTER";
 
             float w = 560f;

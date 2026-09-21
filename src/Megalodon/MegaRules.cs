@@ -30,7 +30,8 @@ namespace Expanded.Megalodon
         TailSlap,
         PlayDead,
         SternChomp,
-        JumpOver
+        JumpOver,
+        Alongside
     }
 
     /// <summary>Things the sea throws in while the megalodon is busy.</summary>
@@ -123,9 +124,9 @@ namespace Expanded.Megalodon
         {
             switch (p)
             {
-                case Phase.One: return 7.5f;
-                case Phase.Two: return 6f;
-                default: return 4.8f;
+                case Phase.One: return 6f;
+                case Phase.Two: return 5f;
+                default: return 4.2f;
             }
         }
 
@@ -134,15 +135,15 @@ namespace Expanded.Megalodon
         {
             switch (p)
             {
-                case Phase.One: return 22f;
-                case Phase.Two: return 14f;
-                default: return 11f;
+                case Phase.One: return 14f;
+                case Phase.Two: return 10f;
+                default: return 8f;
             }
         }
 
-        private static readonly Attack[] PoolOne = { Attack.SkimLunge, Attack.BreachLunge, Attack.SkimLunge, Attack.BreachLunge, Attack.PlayDead };
-        private static readonly Attack[] PoolTwo = { Attack.SkimLunge, Attack.BreachLunge, Attack.FakeOut, Attack.RopeBite, Attack.TailSlap, Attack.PlayDead };
-        private static readonly Attack[] PoolThree = { Attack.SkimLunge, Attack.BreachLunge, Attack.FakeOut, Attack.RopeBite, Attack.TailSlap, Attack.SternChomp, Attack.JumpOver, Attack.SternChomp };
+        private static readonly Attack[] PoolOne = { Attack.SkimLunge, Attack.BreachLunge, Attack.Alongside, Attack.SkimLunge, Attack.BreachLunge, Attack.PlayDead };
+        private static readonly Attack[] PoolTwo = { Attack.SkimLunge, Attack.BreachLunge, Attack.FakeOut, Attack.Alongside, Attack.RopeBite, Attack.TailSlap, Attack.PlayDead };
+        private static readonly Attack[] PoolThree = { Attack.SkimLunge, Attack.BreachLunge, Attack.FakeOut, Attack.RopeBite, Attack.Alongside, Attack.TailSlap, Attack.SternChomp, Attack.JumpOver, Attack.SternChomp };
 
         public static Attack[] Pool(Phase p) => p == Phase.One ? PoolOne : p == Phase.Two ? PoolTwo : PoolThree;
 

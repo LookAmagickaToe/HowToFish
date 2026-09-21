@@ -49,6 +49,8 @@ namespace Expanded.Megalodon
         public readonly ConfigEntry<float> GunMultiplier;
         public readonly ConfigEntry<float> MaxGunDamagePerSecond;
         public readonly ConfigEntry<float> RodeoChargeFraction;
+        public readonly ConfigEntry<int> BiteDamage;
+        public readonly ConfigEntry<int> BoatHitDamage;
 
         // --- boat --------------------------------------------------------------
         public readonly ConfigEntry<int> MineStock;
@@ -120,6 +122,8 @@ namespace Expanded.Megalodon
             GunMultiplier = c.Bind(D, "GunMultiplier", 0.5f, "Scales bullet damage. It's a very big fish.");
             MaxGunDamagePerSecond = c.Bind(D, "MaxGunDamagePerSecond", 45f, "Upper limit on gunfire damage per second, whole crew.");
             RodeoChargeFraction = c.Bind(D, "RodeoChargeFraction", 0.18f, "A charge planted on its back takes this fraction of its max health.");
+            BiteDamage = c.Bind(D, "BiteDamage", 25, "Health a bite takes from the wakeboarder, on top of losing the board. 0 = boards only.");
+            BoatHitDamage = c.Bind(D, "BoatHitDamage", 10, "Health everyone on deck loses when it rams the boat or bites the stern.");
 
             MineStock = c.Bind(B, "MineStock", 3, "Barrel mines the driver can drop (G). Restocked over time.");
             MineRestockSeconds = c.Bind(B, "MineRestockSeconds", 22f, "A new mine every this many seconds, up to the stock.");

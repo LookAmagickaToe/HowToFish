@@ -115,6 +115,10 @@ namespace Expanded.Megalodon
                     MegaFx.FightOn = false;
                     MegaFx.Banner("...it's gone. For now.", new Color(0.8f, 0.9f, 1f), 2.5f);
                     return;
+                case EvKind.Alongside:
+                    if (me != null && me.OwnerId == ev.Extra && Wakeboard.Riding)
+                        MegaFx.Banner("IT'S RIGHT BESIDE YOU!\n[SPACE] JUMP ON IT!", new Color(1f, 0.85f, 0.3f), 3.5f);
+                    return;
                 case EvKind.RodeoStart:
                     if (me != null && me.OwnerId == ev.Extra) Wakeboard.ConfirmRodeo();
                     return;
@@ -190,6 +194,15 @@ namespace Expanded.Megalodon
                 !(_ev.Kind == EvKind.PlayDead && Mode != SharkMode.PlayDead && now - _ev.Start > 0.5f))
             {
                 float t = now - _ev.Start;
+                if (_ev.Target >= 0)
+                {
+                    Player tp = MegaModule.PlayerByOwner(_ev.Target);
+                    if (tp != null)
+                    {
+                        Vector3 tpos = tp == Player.LocalPlayer && Wakeboard.Riding ? PlayerHold.Pose : tp.Transform.position;
+                        _ev.Track(t, dt, tpos, Tow.Velocity());
+                    }
+                }
                 Vector3 body; Quaternion rot;
                 _ev.Pose(t, MouthOffset, out body, out rot, out submerged);
                 _pos = body;
@@ -613,14 +626,25 @@ namespace Expanded.Megalodon
             return true;
         }
 
-        /// <summary>True if the feet just landed on its back.</summary>
-        internal static bool CanRodeo(Vector3 feet)
+        /// <summary>True if the feet just landed on its back. <paramref name="generous"/> after a jump aimed at it.</summary>
+        internal static bool CanRodeo(Vector3 feet, bool generous = false)
         {
             if (!Present || _hidden || (Mode != SharkMode.Chase && Mode != SharkMode.Stalk)) return false;
             if (_ev != null && !_evEnded) return false;
             Vector3 local = Quaternion.Inverse(_rot) * (feet - _pos);
-            return Mathf.Abs(local.x) < 1.5f && Mathf.Abs(local.z) < Length * 0.3f &&
-                   local.y > -0.6f && local.y < _halfHeight + 2.2f;
+            float wide = generous ? 2.8f : 1.5f;
+            return Mathf.Abs(local.x) < wide && Mathf.Abs(local.z) < Length * (generous ? 0.42f : 0.3f) &&
+                   local.y > (generous ? -1.8f : -0.6f) && local.y < _halfHeight + 2.5f;
+        }
+
+        /// <summary>Its back, if it is close enough to jump onto from where you are.</summary>
+        internal static bool RodeoReach(Vector3 from, out Vector3 back, out Vector3 velocity)
+        {
+            back = velocity = Vector3.zero;
+            if (Mode != SharkMode.Chase && Mode != SharkMode.Stalk) return false;
+            if (_ev != null && !_evEnded) return false;
+            if (!BackPoint(out back, out velocity)) return false;
+            return new Vector2(back.x - from.x, back.z - from.z).magnitude < 7.5f;
         }
 
         /// <summary>Does a bullet's path this step pass through its body?</summary>
