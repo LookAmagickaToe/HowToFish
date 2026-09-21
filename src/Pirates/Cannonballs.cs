@@ -38,6 +38,7 @@ namespace Expanded.Pirates
         }
 
         private const float MaxLifetime = 9f;
+        private const float BallRadius = 0.45f;
         private const float WaterExplosionDepth = 0.35f;
 
         private static readonly List<Ball> Live = new List<Ball>();
@@ -136,9 +137,11 @@ namespace Expanded.Pirates
             if (len < 1e-5f) return false;
 
             int mask = ball.FromPirates ? GameInfo.NpcProjectileHitLayer.value : GameInfo.ProjectileHitLayer.value;
-            mask |= GameInfo.LevelLayer.value | GameInfo.BoatLayer.value;
+            mask |= GameInfo.LevelLayer.value | GameInfo.BoatLayer.value | GameInfo.ItemLayer.value;
 
-            RaycastHit[] hits = Physics.RaycastAll(from, d / len, len, mask, QueryTriggerInteraction.Ignore);
+            // A ball, not a laser: sweep a sphere the size of the ball (a little generous), so gulls,
+            // fish and animals in its path are hit instead of slipping between two thin rays.
+            RaycastHit[] hits = Physics.SphereCastAll(from, BallRadius, d / len, len, mask, QueryTriggerInteraction.Ignore);
             if (hits.Length == 0) return false;
 
             Transform ownBoat = BoatManager.Boat != null ? BoatManager.Boat.transform : null;
@@ -157,9 +160,16 @@ namespace Expanded.Pirates
                 {
                     if (ownBoat != null && t.IsChildOf(ownBoat)) continue;
                     if (ball.Age < 0.35f && PlayerManager.GetPlayerFromBodyPart(t) != null) continue;
+                    // Whatever lies loose on our own deck (the catch, a crate) is not a target.
+                    if (ball.Age < 0.5f)
+                    {
+                        Item item = ItemManager.Get(h.collider);
+                        if (item != null && item.RigidbodySync != null && item.RigidbodySync.OnBoat) continue;
+                    }
                 }
 
-                point = h.point;
+                // A sphere already touching something at the start of the sweep reports no point.
+                point = h.distance <= 0f ? from : h.point;
                 return true;
             }
             return false;

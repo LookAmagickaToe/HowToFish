@@ -269,6 +269,7 @@ Check-Method "DazedUtils"        "PlayCreatureHitEffects" @("Vector3", "Vector3"
 Check-Method "PlayerScreenShake" "Shake"                @("Single", "Int32", "Vector2")
 Check-Method "Item"              "get_HasPlayerHolder"  @()
 Check-Method "PlayerInventory"   "ServerDropAll"        @("Vector3", "Quaternion")
+Check-Method "GameInfo"          "get_ItemLayer"        @()
 Check-Field  "PlayerInventory"   "_player"              $null
 Check-Method "BoatManager"       "TryMoveBoat"          @("Vector3", "Quaternion")
 Check-Field  "Island"            "IslandPos"            "public"
