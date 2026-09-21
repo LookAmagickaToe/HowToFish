@@ -25,7 +25,7 @@ namespace Expanded
     internal static class ModNet
     {
         /// <summary>Bumped when the wire format changes incompatibly; mismatched peers are warned.</summary>
-        internal const int Protocol = 2;   // 2: UnlockChanged carries granted/revoked
+        internal const int Protocol = 3;   // 2: UnlockChanged carries granted/revoked; 3: dialogue as lines, NpcSay
 
         internal struct ModPacket : IBroadcast
         {
@@ -303,6 +303,7 @@ namespace Expanded
         internal const byte NpcSet = 10;         // which story NPCs are present, with quest markers
         internal const byte CrewDied = 11;       // a pirate crew member was killed
         internal const byte SiteMarker = 12;     // where the chart's mark is (or that it is gone)
+        internal const byte NpcSay = 13;         // a story NPC says something out loud (e.g. after eating)
 
         // clients -> host
         internal const byte RequestAccept = 20;  // accept an offered quest

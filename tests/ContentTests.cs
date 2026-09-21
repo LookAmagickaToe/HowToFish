@@ -26,6 +26,9 @@ namespace Expanded.Tests
 
         private static void Section(string s) { Console.WriteLine(); Console.WriteLine("== " + s); }
 
+        private static void Eq<T>(T actual, T expected, string what) =>
+            Check(Equals(actual, expected), what + " (expected " + expected + ", got " + actual + ")");
+
         private static QuestEngine Story()
         {
             var e = new QuestEngine();
@@ -113,7 +116,15 @@ namespace Expanded.Tests
 
             Check(e.Accept(PirateStory.QuestOmens), "accept Bad Omens");
             for (int i = 0; i < 3; i++) e.Handle(QuestEvent.Killed("seagull"));
-            Check(e.Progress(PirateStory.QuestOmens).Status == QuestStatus.Completed, "three gulls complete Bad Omens");
+            Check(e.Progress(PirateStory.QuestOmens).Status == QuestStatus.Active, "killing gulls alone is not enough");
+            e.Handle(QuestEvent.Delivered(StoryNpcs.Anne, "seagull"));
+            Eq(e.Progress(PirateStory.QuestOmens).Counter, 0, "feeding the wrong character does not count");
+            e.Handle(QuestEvent.Delivered(StoryNpcs.OldSalt, "seagull"));
+            Eq(e.Progress(PirateStory.QuestOmens).Counter, 1, "one gull fed to Old Salt counts 1/3");
+            e.Handle(QuestEvent.Delivered(StoryNpcs.OldSalt, "cod"));
+            Eq(e.Progress(PirateStory.QuestOmens).Counter, 1, "feeding him a fish does not count");
+            for (int i = 0; i < 2; i++) e.Handle(QuestEvent.Delivered(StoryNpcs.OldSalt, "seagull"));
+            Check(e.Progress(PirateStory.QuestOmens).Status == QuestStatus.Completed, "three gulls fed complete Bad Omens");
             Check(e.Progress(PirateStory.QuestFlock).Status == QuestStatus.Available, "The Flock Breaks offered");
             Check(e.Progress(PirateStory.QuestBigFish).Status == QuestStatus.Available, "side quest offered alongside");
 
@@ -153,7 +164,7 @@ namespace Expanded.Tests
 
             // ...but the flag is remembered, so the quest completes the moment it is taken on.
             e.Accept(PirateStory.QuestOmens);
-            for (int i = 0; i < 3; i++) e.Handle(QuestEvent.Killed("seagull"));
+            for (int i = 0; i < 3; i++) e.Handle(QuestEvent.Delivered(StoryNpcs.OldSalt, "seagull"));
             e.Accept(PirateStory.QuestFlock);
             Check(e.Progress(PirateStory.QuestFlock).Status == QuestStatus.Completed,
                   "quest whose goal was already met completes on accept instead of hanging");

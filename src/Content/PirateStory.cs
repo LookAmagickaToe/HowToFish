@@ -51,11 +51,12 @@ namespace Expanded.Content
                 Giver = StoryNpcs.OldSalt,
                 Summary = "The gulls here have lost their manners.",
                 OfferText = "Gulls been screaming at me all week. Not at the fish. At me.\n" +
-                            "Thin 'em out, would you? Three should do it. Then we'll see who's listening.",
-                ActiveText = "Three gulls. They're the white ones. With the attitude.",
+                            "Thin 'em out, would you? Three should do it.\n" +
+                            "And bring 'em here. I want to see them. Then I want to eat them.",
+                ActiveText = "Three gulls. The white ones, with the attitude. Toss 'em to me.",
                 DoneText = "Three down and the rest went quiet. That's not better. That's worse."
             };
-            q.Steps.Add(new QuestStep("Kill 3 seagulls", Objective.Kill("seagull", 3),
+            q.Steps.Add(new QuestStep("Feed 3 dead seagulls to Old Salt", Objective.Deliver(StoryNpcs.OldSalt, "seagull", 3),
                                       "The gulls fall silent. Something out there noticed."));
             q.Rewards.Add(Reward.Money(150));
             q.Rewards.Add(Reward.Flag(FlagOmens));

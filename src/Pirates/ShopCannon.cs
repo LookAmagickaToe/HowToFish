@@ -131,6 +131,7 @@ namespace Expanded.Pirates
                 root.SetActive(false);
                 root.transform.SetPositionAndRotation(pos, anchor.transform.rotation);
                 root.layer = LayerMask.NameToLayer("Interactable");
+                root.tag = "Interactable";   // the game's look-at only considers colliders with this tag
 
                 GameObject model = ModAssets.Create("cannon", pos, anchor.transform.rotation, root.transform, solid: false);
                 Bounds b = model != null ? ModAssets.Measure(model) : new Bounds(pos + Vector3.up * 0.4f, new Vector3(0.8f, 0.8f, 1.2f));

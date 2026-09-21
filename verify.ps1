@@ -155,6 +155,27 @@ Write-Host "`n-- Story character voice (borrowed from vanilla NPCs) --"
 Check-Field  "NPC" "_mouthSource" $null
 Check-Field  "NPC" "_mouthVol"    $null
 
+Write-Host "`n-- Story characters talk and eat like vanilla NPCs --"
+if ($module.GetType("NPCInteractable")) { Write-Host "  ok    type NPCInteractable (base of the talk point)" -ForegroundColor Green }
+else { Write-Host "  FAIL  type NPCInteractable missing" -ForegroundColor Red; $fail++ }
+Check-Method "NPCInteractable" "Interact"        @("Player")
+Check-Method "PlayerUI"        "SetNpcText"      @("String", "Transform")
+Check-Method "Item"            "DestroyByNpc"    @("Byte")
+Check-Method "Item"            "DespawnItemOnServer" @()
+Check-Method "Item"            "DestroyItem"     @("Byte", "Byte")
+Check-Method "Item"            "get_ExtraRigs"   @()
+Check-Method "Item"            "get_RigidbodySync" @()
+Check-Method "Item"            "get_HasBeenHeld" @()
+Check-Method "Item"            "get_LastHolder"  @()
+Check-Method "Item"            "get_Holder"      @()
+Check-Method "Item"            "get_Creature"    @()
+Check-Method "ItemManager"     "Get"             @("Collider")
+Check-Method "RigidbodySync"   "SetKinematic"    @("Boolean")
+Check-Method "Creature"        "get_IsDead"      @()
+$dbn = (Get-Type "Item").Methods | Where-Object { $_.Name -eq "DestroyByNpc" } | Select-Object -First 1
+if ($dbn -and ($dbn.Parameters | Where-Object { $_.Name -eq "npcID" })) { Write-Host "  ok    Item.DestroyByNpc has parameter 'npcID'" -ForegroundColor Green }
+else { Write-Host "  FAIL  Item.DestroyByNpc lacks parameter 'npcID'" -ForegroundColor Red; $fail++ }
+
 Write-Host "`n-- Pirate hull (reaches into the game's boat) --"
 foreach ($f in @("_dynamicObjectColsHolder", "_itemColsHolder", "_dynamicObjectCols", "_steeringWheel", "_throttle", "_boatInteractable")) {
     Check-Field "Boat" $f $null
