@@ -83,7 +83,9 @@ namespace Expanded.Pirates
 
             Vector3 p = b.center + l.Bow * along;
             float y = DeckHeight(boat, new Vector3(p.x, b.max.y, p.z), b);
-            localPos = new Vector3(p.x, y, p.z);
+            // Guns sit on a short pedestal above the deck (config), so the barrel clears the gunwale.
+            float lift = PirateModule.Cfg != null ? PirateModule.Cfg.DeckCannonLift.Value : 0f;
+            localPos = new Vector3(p.x, y + lift, p.z);
             return true;
         }
 
