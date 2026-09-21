@@ -35,6 +35,7 @@ namespace Expanded
         private Harmony _harmony;
         private bool _overlayVisible;
         private bool _sessionRunning;
+        private bool _helloSent;
 
         private void Awake()
         {
@@ -192,6 +193,24 @@ namespace Expanded
             bool server = FishNet.InstanceFinder.IsServerStarted;
             bool running = client || server;
 
+            // Hooking is checked every frame, not only when the session starts: a host starts its
+            // server first and its own client a frame or more later. Hooking only at session start
+            // left the host's client deaf to every mod broadcast - no NPCs, no health bar, no
+            // cannonballs on the host's own screen. Both calls are idempotent.
+            if (server) ModNet.HookServer();
+            if (client)
+            {
+                ModNet.HookClient();
+
+                // A joining client asks the host for everything it missed: unlocks, journal, NPCs,
+                // any fight in progress. Once per session, as soon as the client is actually up.
+                if (!server && !_helloSent)
+                {
+                    _helloSent = true;
+                    ModNet.SendToServer(Msg.Hello);
+                }
+            }
+
             if (running == _sessionRunning) return;
             _sessionRunning = running;
 
@@ -203,9 +222,6 @@ namespace Expanded
                 // any module reads progress from it.
                 ModSave.RebindToCurrentUser();
 
-                if (server) ModNet.HookServer();
-                if (client) ModNet.HookClient();
-
                 if (server) SharedState.LoadFromSave();
 
                 foreach (ModuleBase m in Modules)
@@ -214,10 +230,6 @@ namespace Expanded
                     try { m.BeginSession(server); }
                     catch (Exception e) { Diag.Exception("Module " + m.Id + ".OnSessionStart", e); }
                 }
-
-                // A joining client asks the host for everything it missed: unlocks, journal, and
-                // any fight already in progress. The host already has all of it.
-                if (client && !server) ModNet.SendToServer(Msg.Hello);
             }
             else
             {
@@ -228,6 +240,7 @@ namespace Expanded
                     catch (Exception e) { Diag.Exception("Module " + m.Id + ".OnSessionEnd", e); }
                 }
                 ModNet.Unhook();
+                _helloSent = false;
                 SharedState.Clear();
                 ModSave.SaveIfDirty(true);
             }

@@ -101,13 +101,20 @@ Small, cheap signposts so content is discovered rather than looked up:
 | Layer | State |
 |---|---|
 | Module system, hotkeys, overlay | **Done** |
-| Custom networking (no prefab registration needed) | **Done** |
+| Custom networking, late-joiner sync | **Done** |
 | Mod-only save file, per Steam account | **Done** |
-| Quest engine + 56 headless tests | **Done** |
-| Quest sync, chat notifications, rewards | **Done** |
-| Act 1 content (4 quests) | **Done**, final quest waits on the pirate module |
-| Seagull swarm | **Done** (earlier work, now a module) |
-| Pirate ship + cannons | Designed, not built |
-| New NPCs + dialogue | Designed, not built |
+| Quest engine + story + ballistics, 124 headless tests | **Done** |
+| Act 1 content (4 quests), fully playable | **Done** |
+| Seagull swarm | **Done** |
+| Asset bundle pipeline (Unity batch mode) | **Done** |
+| Pirate ship: sailing AI, broadsides, sinking | **Done** |
+| Damage to the ship from cannon, dynamite and gunfire | **Done** |
+| Health bar | **Done** |
+| Deck cannon (bow during the fight, kept afterwards) | **Done** |
+| Boat refit reward (mast, colours, stern gun) | **Done** |
+| Pirate crew, animated | **Done** - grey until the colour atlas is installed |
+| Story characters + dialogue + quest markers | **Done** - grey until the colour atlas is installed |
+| Pirate raids on rich crews after Act 1 | **Done** |
+| Boarding (pirates fighting on your deck) | Not built |
+| Act 2 and 3 | Designed, not built |
 | Sea events (bottles, sharks, flotsam) | Designed, not built |
-| Asset bundle pipeline | Blocked on Unity 6000.4.4 install |

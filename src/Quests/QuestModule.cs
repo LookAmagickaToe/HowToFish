@@ -350,12 +350,16 @@ namespace Expanded.Quests
 
         private static string Describe(NetworkConnection c) => c == null ? "?" : "client " + c.ClientId;
 
-        /// <summary>Host-side announcement: logged, shown locally, and pushed to every client.</summary>
+        /// <summary>
+        /// Host-side announcement. Sent as a broadcast, which the host's own client also receives,
+        /// so it appears exactly once on every screen - showing it locally as well would double it
+        /// on the host.
+        /// </summary>
         private void Announce(string text)
         {
             Diag.Info("[quest] " + text);
-            ShowToast(text);
-            ModNet.SendToAll(Msg.QuestToast, w => w.Write(text ?? ""));
+            if (InstanceFinder.IsServerStarted) ModNet.SendToAll(Msg.QuestToast, w => w.Write(text ?? ""));
+            else ShowToast(text);
         }
 
         private void ShowToast(string text)

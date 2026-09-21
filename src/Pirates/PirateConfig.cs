@@ -104,7 +104,9 @@ namespace Expanded.Pirates
             SinkSeconds = c.Bind(S, "SinkSeconds", 12f, "How long the sinking lasts before she is removed.");
 
             PortsPerSide = c.Bind(G, "PortsPerSide", 3, "Guns on each side.");
-            PortSideFraction = c.Bind(G, "PortSideFraction", 0.5f,
+            // 0.85 puts the guns just inside the rail. (The earlier 0.5 was sized from a rotated
+            // preview measurement that overstated the beam; the true beam is under 5 m.)
+            PortSideFraction = c.Bind(G, "GunRailFraction", 0.85f,
                 "Gun distance from the centreline, as a fraction of the half-width.");
             PortHeightFraction = c.Bind(G, "PortHeightFraction", 0.24f,
                 "Gun height above the keel, as a fraction of the total height.");
