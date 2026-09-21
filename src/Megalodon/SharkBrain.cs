@@ -750,9 +750,34 @@ namespace Expanded.Megalodon
                 if (hurt > 0) Hurt(p, hurt, at);
             }
 
-            if (engine) MegaBoat.HostDamageEngine();
-            MegaModule.Announce(engine ? "It bit the stern! The engine's coughing smoke!" : "It rammed the bow!");
             ModSave.AddCounter("megalodon.boat.hits", 1);
+            if (MegaBoat.HostBoatBitten()) { WreckBoat(); return; }
+            if (engine) MegaBoat.HostDamageEngine();
+            int left = MegaBoat.BitesLeft;
+            MegaModule.Announce((engine ? "It bit the stern! The engine's coughing smoke!" : "It rammed the bow!") +
+                                (left == 1 ? " The hull is cracking - ONE more and she's gone!" : " The hull can take " + left + " more."));
+        }
+
+        /// <summary>
+        /// The last bite: the boat bursts into planks and everyone near it goes down with it. The boat
+        /// goes home to the mooring (the game does the same when a whole crew dies), weapons are kept.
+        /// </summary>
+        private static void WreckBoat()
+        {
+            Vector3 c = Tow.Centre();
+            Send(new SharkEvent { Kind = EvKind.Wreck, A = c });
+            foreach (Player p in PlayerManager.AlivePlayers.ToArray())
+            {
+                if (p == null || p.Dying.IsDead) continue;
+                if (Flat(p.Transform.position - c).magnitude > 45f) continue;
+                Vector3 fling = Flat(p.Transform.position - c).normalized * 6f + Vector3.up * 8f;
+                try { Server.Instance.HitPlayer(p, 999, fling, p.Transform.position, (byte)DamageType.Bite, null); }
+                catch (Exception e) { Diag.Debug("Wreck kill: " + e.Message); }
+            }
+            WakeRig.HostClear("the boat is gone");
+            MegaBoat.HostScheduleReturnHome(2.5f);
+            MegaModule.Announce("CRUNCH. The boat is matchwood. Everyone aboard is... having a very bad day.");
+            Leave("it's full of boat");
         }
 
         private static List<Player> PlayersOnBoat()
@@ -788,7 +813,7 @@ namespace Expanded.Megalodon
                 Board next = MegaRules.Next(WakeRig.Tier);
                 if (next == Board.Eaten) { Eat(p); return; }
                 WakeRig.HostSetTier(next);
-                Hurt(p, Mathf.Max(0, Cfg.BiteDamage.Value), p.Transform.position);
+                Hurt(p, Mathf.CeilToInt(100f * Mathf.Clamp01(Cfg.BiteHealthFraction.Value)), p.Transform.position);
                 Send(new SharkEvent { Kind = EvKind.Bitten, Extra = p.OwnerId, Style = (byte)next });
                 MegaModule.Announce(p.SteamName + " got bitten! Now riding: " + MegaRules.BoardName(next) + ".");
                 return;

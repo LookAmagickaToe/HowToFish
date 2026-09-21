@@ -41,7 +41,8 @@ namespace Expanded.Megalodon
         Phase,          // Extra = new phase
         Eaten,          // Extra = owner id of whoever it ate
         Bitten,         // Extra = owner id, Style = the board they're down to
-        Alongside       // Extra = owner id of the rider it swims up beside
+        Alongside,      // Extra = owner id of the rider it swims up beside
+        Wreck           // the boat is smashed to planks (A = where)
     }
 
     /// <summary>

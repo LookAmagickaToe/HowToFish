@@ -26,10 +26,12 @@ namespace Expanded.Megalodon
         private static float _damagedUntil;
         private static int _mines;
         private static float _nextRestock;
+        private static int _boatBites;
+        private static float _returnHomeAt = -1f;
 
         // What every client knows (from MegaStatus), for the HUD and the smoke.
         internal static bool SeenStalled, SeenAutopilot;
-        internal static int SeenPulls, SeenNeeded, SeenMines;
+        internal static int SeenPulls, SeenNeeded, SeenMines, SeenBoatBites, SeenBoatLimit;
         internal static float SeenDamagedUntil;
 
         // Old Salt at the helm (host-only visual: autopilot only runs in single-player).
@@ -83,6 +85,8 @@ namespace Expanded.Megalodon
             w.Write(Mathf.Max(0f, _damagedUntil - Time.time));
             w.Write((byte)Mathf.Clamp(_mines, 0, 255));
             w.Write(Autopilot);
+            w.Write((byte)Mathf.Clamp(_boatBites, 0, 255));
+            w.Write((byte)Mathf.Clamp(Cfg.BoatBitesToWreck.Value, 0, 255));
         }
 
         internal static void ReadStatus(System.IO.BinaryReader r)
@@ -93,7 +97,24 @@ namespace Expanded.Megalodon
             SeenDamagedUntil = Time.time + r.ReadSingle();
             SeenMines = r.ReadByte();
             SeenAutopilot = r.ReadBoolean();
+            SeenBoatBites = r.ReadByte();
+            SeenBoatLimit = r.ReadByte();
         }
+
+        /// <summary>Host: bites the hull can still take before it breaks. int.MaxValue when unbreakable.</summary>
+        internal static int BitesLeft => Cfg.BoatBitesToWreck.Value <= 0 ? int.MaxValue : Mathf.Max(0, Cfg.BoatBitesToWreck.Value - _boatBites);
+
+        /// <summary>Host: one more bite on the hull. True if that was the one that breaks it.</summary>
+        internal static bool HostBoatBitten()
+        {
+            _boatBites++;
+            bool wrecked = Cfg.BoatBitesToWreck.Value > 0 && _boatBites >= Cfg.BoatBitesToWreck.Value;
+            if (wrecked) { _boatBites = 0; Stalled = false; _pulls = 0; _damagedUntil = 0f; }
+            SharkBrain.BroadcastStatus();
+            return wrecked;
+        }
+
+        internal static void HostScheduleReturnHome(float seconds) => _returnHomeAt = Time.time + seconds;
 
         // ------------------------------------------------------------------ host
 
@@ -123,6 +144,13 @@ namespace Expanded.Megalodon
             {
                 _nextAutoPull = now + 0.55f;
                 Pull(null);
+            }
+
+            if (_returnHomeAt > 0f && now >= _returnHomeAt)
+            {
+                _returnHomeAt = -1f;
+                try { BoatManager.Instance?.TryMoveBoat(SpawnManager.BoatSpawnPos, SpawnManager.BoatSpawnRot); }
+                catch (Exception e) { Diag.Exception("Return the boat home", e); }
             }
 
             if (_pendingAt > 0f && now >= _pendingAt)
@@ -164,6 +192,7 @@ namespace Expanded.Megalodon
             Stalled = false;
             _pulls = 0;
             _damagedUntil = 0f;
+            _boatBites = 0;   // patched up between fights
             SharkBrain.BroadcastStatus();
         }
 

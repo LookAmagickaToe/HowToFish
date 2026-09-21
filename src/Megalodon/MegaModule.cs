@@ -101,6 +101,7 @@ namespace Expanded.Megalodon
             WakeShop.Clear();
             Shouts.Clear();
             MegaFx.Clear();
+            MegaWreck.Clear();
         }
 
         internal override void Tick()
@@ -122,6 +123,7 @@ namespace Expanded.Megalodon
             WakeShop.ClientTick();
             MegaStomach.Tick();
             MegaStomach.LateYell();
+            MegaWreck.Tick();
             MegaBoat.ClientTick();
             MegaFx.Tick();
             HandleKeys();

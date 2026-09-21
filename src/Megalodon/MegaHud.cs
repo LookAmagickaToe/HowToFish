@@ -26,7 +26,7 @@ namespace Expanded.Megalodon
         {
             Styles();
             bool fight = SharkVisual.Active && SharkVisual.Mode != SharkMode.Gone;
-            if (fight) HealthBar();
+            if (fight) { HealthBar(); HullBar(); }
             if (fight && SharkVisual.Mode != SharkMode.Dead && SharkVisual.Mode != SharkMode.Leaving) BiteMeter();
             if (Wakeboard.Riding) RiderPanel(fight);
             else if (Boat.IsDrivingLocally) DriverPanel(fight);
@@ -57,6 +57,28 @@ namespace Expanded.Megalodon
             // Phase marks at two thirds and one third.
             PirateModule.DrawRect(new Rect(back.x + back.width * (2f / 3f), back.y, 2f, back.height), new Color(1f, 1f, 1f, 0.5f));
             PirateModule.DrawRect(new Rect(back.x + back.width * (1f / 3f), back.y, 2f, back.height), new Color(1f, 1f, 1f, 0.5f));
+        }
+
+        /// <summary>How many more bites the boat can take, as little planks under the megalodon's bar.</summary>
+        private static void HullBar()
+        {
+            int limit = MegaBoat.SeenBoatLimit;
+            if (limit <= 0) return;
+            int left = Mathf.Max(0, limit - MegaBoat.SeenBoatBites);
+            float y = (PirateModule.Instance != null && PirateModule.Instance.ShipFightActive ? 76f : 18f) + 48f;
+            const float cell = 26f, gap = 5f;
+            float w = limit * cell + (limit - 1) * gap;
+            float x = (Screen.width - w) * 0.5f;
+            _small.normal.textColor = left <= 1 ? new Color(1f, 0.45f, 0.35f) : new Color(0.92f, 0.92f, 0.92f);
+            GUI.Label(new Rect(x - 80f, y - 2f, 74f, 18f), "BOAT", _small);
+            for (int i = 0; i < limit; i++)
+            {
+                bool intact = i < left;
+                Color c = intact ? new Color(0.6f, 0.42f, 0.22f, 0.95f) : new Color(0.15f, 0.1f, 0.08f, 0.6f);
+                if (intact && left == 1) c = Color.Lerp(c, new Color(1f, 0.3f, 0.2f), Mathf.Abs(Mathf.Sin(Time.time * 6f)));
+                PirateModule.DrawRect(new Rect(x + i * (cell + gap), y, cell, 12f), c);
+            }
+            _small.normal.textColor = new Color(0.92f, 0.92f, 0.92f);
         }
 
         private static void BiteMeter()

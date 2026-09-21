@@ -162,6 +162,37 @@ namespace Expanded.Megalodon
             catch (Exception e) { Diag.Exception("Patch ServerExplode (megalodon, post)", e); }
         }
 
+        // ------------------------------------------------------------------ keep your things at sea
+
+        private static readonly FieldInfo FInvPlayer = AccessTools.Field(typeof(PlayerInventory), "_player");
+
+        /// <summary>
+        /// Respawning drops everything you carried where you died. Out at sea that is the bottom of
+        /// the ocean, so a dead player out there keeps their inventory instead.
+        /// </summary>
+        [HarmonyPrefix, HarmonyPatch(typeof(PlayerInventory), "ServerDropAll")]
+        private static bool PlayerInventory_ServerDropAll(PlayerInventory __instance, Vector3 pos)
+        {
+            try
+            {
+                if (MegaModule.Cfg == null || !MegaModule.Cfg.KeepItemsAtSea.Value) return true;
+                var p = FInvPlayer?.GetValue(__instance) as Player;
+                if (p == null || p.Vitals.Health > 0) return true;   // only the respawn-after-death drop
+
+                Vector3 island = Island.IslandPos;
+                float flat = new Vector2(pos.x - island.x, pos.z - island.z).magnitude;
+                bool atSea = flat > Island.IslandSize + 15f && pos.y < PirateModule.WaterY() + 3f;
+                if (!atSea) return true;
+                Diag.Info("Kept " + p.SteamName + "'s inventory: died at sea, " + flat.ToString("0") + " m from the island.");
+                return false;
+            }
+            catch (Exception e)
+            {
+                Diag.Exception("Patch ServerDropAll", e);
+                return true;
+            }
+        }
+
         // ------------------------------------------------------------------ the boat
 
         [HarmonyPrefix, HarmonyPatch(typeof(Boat), "ApplyInputForce")]

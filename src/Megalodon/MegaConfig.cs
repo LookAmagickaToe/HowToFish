@@ -49,8 +49,10 @@ namespace Expanded.Megalodon
         public readonly ConfigEntry<float> GunMultiplier;
         public readonly ConfigEntry<float> MaxGunDamagePerSecond;
         public readonly ConfigEntry<float> RodeoChargeFraction;
-        public readonly ConfigEntry<int> BiteDamage;
+        public readonly ConfigEntry<float> BiteHealthFraction;
         public readonly ConfigEntry<int> BoatHitDamage;
+        public readonly ConfigEntry<int> BoatBitesToWreck;
+        public readonly ConfigEntry<bool> KeepItemsAtSea;
 
         // --- boat --------------------------------------------------------------
         public readonly ConfigEntry<int> MineStock;
@@ -122,7 +124,13 @@ namespace Expanded.Megalodon
             GunMultiplier = c.Bind(D, "GunMultiplier", 0.5f, "Scales bullet damage. It's a very big fish.");
             MaxGunDamagePerSecond = c.Bind(D, "MaxGunDamagePerSecond", 45f, "Upper limit on gunfire damage per second, whole crew.");
             RodeoChargeFraction = c.Bind(D, "RodeoChargeFraction", 0.18f, "A charge planted on its back takes this fraction of its max health.");
-            BiteDamage = c.Bind(D, "BiteDamage", 25, "Health a bite takes from the wakeboarder, on top of losing the board. 0 = boards only.");
+            BiteHealthFraction = c.Bind(D, "BiteHealthFraction", 0.5f,
+                "Share of a player's full health one bite takes, on top of losing the board. 0.5 = two bites kill " +
+                "(eat something in between to heal). 0 = boards only.");
+            BoatBitesToWreck = c.Bind(D, "BoatBitesToWreck", 4,
+                "Rams and stern bites the boat survives. The last one smashes it to planks - and everyone aboard with it. 0 = unbreakable.");
+            KeepItemsAtSea = c.Bind(D, "KeepItemsWhenDyingAtSea", true,
+                "Die out at sea and you keep your inventory instead of dropping it into the ocean when you respawn.");
             BoatHitDamage = c.Bind(D, "BoatHitDamage", 10, "Health everyone on deck loses when it rams the boat or bites the stern.");
 
             MineStock = c.Bind(B, "MineStock", 3, "Barrel mines the driver can drop (G). Restocked over time.");

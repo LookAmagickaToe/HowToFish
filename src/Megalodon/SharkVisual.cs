@@ -115,6 +115,9 @@ namespace Expanded.Megalodon
                     MegaFx.FightOn = false;
                     MegaFx.Banner("...it's gone. For now.", new Color(0.8f, 0.9f, 1f), 2.5f);
                     return;
+                case EvKind.Wreck:
+                    MegaWreck.Play(ev.A);
+                    return;
                 case EvKind.Alongside:
                     if (me != null && me.OwnerId == ev.Extra && Wakeboard.Riding)
                         MegaFx.Banner("IT'S RIGHT BESIDE YOU!\n[SPACE] JUMP ON IT!", new Color(1f, 0.85f, 0.3f), 3.5f);

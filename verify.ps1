@@ -268,6 +268,15 @@ Check-Method "AudioManager"      "PlayRandomGlobalClip" @("String", "Int32", "In
 Check-Method "DazedUtils"        "PlayCreatureHitEffects" @("Vector3", "Vector3", "Int32", "Single", "Boolean", "Boolean", "Int32", "Player")
 Check-Method "PlayerScreenShake" "Shake"                @("Single", "Int32", "Vector2")
 Check-Method "Item"              "get_HasPlayerHolder"  @()
+Check-Method "PlayerInventory"   "ServerDropAll"        @("Vector3", "Quaternion")
+Check-Field  "PlayerInventory"   "_player"              $null
+Check-Method "BoatManager"       "TryMoveBoat"          @("Vector3", "Quaternion")
+Check-Field  "Island"            "IslandPos"            "public"
+Check-Field  "Island"            "IslandSize"           "public"
+Check-Field  "SpawnManager"      "BoatSpawnRot"         "public"
+$sda = (Get-Type "PlayerInventory").Methods | Where-Object { $_.Name -eq "ServerDropAll" } | Select-Object -First 1
+if ($sda -and ($sda.Parameters | Where-Object { $_.Name -eq "pos" })) { Write-Host "  ok    PlayerInventory.ServerDropAll has parameter 'pos'" -ForegroundColor Green }
+else { Write-Host "  FAIL  PlayerInventory.ServerDropAll lacks parameter 'pos'" -ForegroundColor Red; $fail++ }
 $ups = (Get-Type "ProjectileManager").Methods | Where-Object { $_.Name -eq "UpdateProjectileScan" } | Select-Object -First 1
 $upn = @($ups.Parameters | ForEach-Object { $_.Name })
 if (($upn -contains "projectile") -and ($upn -contains "type")) { Write-Host "  ok    ProjectileManager.UpdateProjectileScan has (projectile, type)" -ForegroundColor Green }
