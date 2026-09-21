@@ -45,14 +45,18 @@ namespace Expanded.Quests
                 "How often player positions are checked against 'go to' objectives.");
         }
 
-        internal override void OnEnable() => Instance = this;
+        internal override void OnEnable()
+        {
+            Instance = this;
+            // Once per game launch: ModNet handlers accumulate, so registering per session would
+            // make every message fire once per session played.
+            RegisterNetHandlers();
+        }
 
         // ------------------------------------------------------------------ session
 
         internal override void OnSessionStart(bool asServer)
         {
-            RegisterNetHandlers();
-
             if (!asServer)
             {
                 Diag.Info("Quests: client mode, waiting for the host's journal.");
@@ -174,6 +178,19 @@ namespace Expanded.Quests
             Apply(Engine.SetFlag(flag));
         }
 
+        /// <summary>Host: accept an offered quest on the player's behalf (from dialogue).</summary>
+        internal bool HostAccept(string questId)
+        {
+            if (Engine == null || !InstanceFinder.IsServerStarted) return false;
+            var outcomes = new List<QuestOutcome>();
+            if (!Engine.Accept(questId, outcomes)) return false;
+            Apply(outcomes);
+            return true;
+        }
+
+        /// <summary>Host: someone spoke to a story character; feeds "talk to X" objectives.</summary>
+        internal void RaiseTalk(string npcName) => Raise(QuestEvent.Talked(npcName));
+
         internal void OnCreatureKilled(Creature creature)
         {
             if (Engine == null || creature == null) return;
@@ -250,11 +267,7 @@ namespace Expanded.Quests
 
                     case RewardKind.ShopStock:
                     case RewardKind.Unlock:
-                        if (ModSave.AddUnlock(r.Key))
-                        {
-                            Announce("Unlocked: " + Pretty(r.Key));
-                            ModNet.SendToAll(Msg.UnlockChanged, w => w.Write(r.Key ?? ""));
-                        }
+                        if (SharedState.Grant(r.Key)) Announce("Unlocked: " + Pretty(r.Key));
                         break;
 
                     case RewardKind.Flag:
@@ -314,6 +327,14 @@ namespace Expanded.Quests
             {
                 string text = r.ReadString();
                 ShowToast(text);
+            });
+
+            // A late joiner gets the current journal immediately instead of waiting for the next change.
+            ModNet.OnServer(Msg.Hello, (conn, r) =>
+            {
+                if (Engine == null) return;
+                List<string> lines = BuildJournal();
+                ModNet.SendTo(conn, Msg.QuestSnapshot, w => ModNet.WriteStringList(w, lines));
             });
 
             ModNet.OnServer(Msg.RequestAccept, (conn, r) =>

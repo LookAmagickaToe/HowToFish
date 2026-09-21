@@ -18,7 +18,11 @@ $exe = Join-Path $out "QuestTests.exe"
 $sources = @(
     (Join-Path $root "src\Quests\QuestModel.cs"),
     (Join-Path $root "src\Quests\QuestEngine.cs"),
-    (Join-Path $PSScriptRoot "QuestEngineTests.cs")
+    (Join-Path $root "src\Content\PirateStory.cs"),
+    (Join-Path $root "src\Content\StoryNpcs.cs"),
+    (Join-Path $root "src\Pirates\Ballistics.cs"),
+    (Join-Path $PSScriptRoot "QuestEngineTests.cs"),
+    (Join-Path $PSScriptRoot "ContentTests.cs")
 )
 foreach ($s in $sources) { if (-not (Test-Path $s)) { throw "missing source: $s" } }
 

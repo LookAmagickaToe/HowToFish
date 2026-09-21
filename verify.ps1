@@ -109,6 +109,41 @@ Check-Method "Item"                "get_RandomizedWeight" @()
 Check-Field  "Item"                "_weight" $null   # protected on Item, inherited by Creature
 Check-Field  "ItemManager"         "Instance" "public"
 
+Write-Host "`n-- Pirates: combat --"
+Check-Method "ExplosionManager"  "ServerExplode"      @("Item", "ExplosionInfo")
+Check-Method "ProjectileManager" "Hit"                @("Projectile", "ProjectileType", "RaycastHit")
+Check-Method "Item"              "GetExplosionInfo"   @()
+Check-Method "ExplosionInfo"     "get_DamageRadius"   @()
+Check-Method "ExplosionInfo"     "get_Damage"         @()
+Check-Method "ExplosionInfo"     "get_HasExploded"    @()
+Check-Method "ExplosionInfo"     "get_OnlyExplodeOnce" @()
+Check-Field  "Projectile"        "IsLocal" "public"
+Check-Field  "Projectile"        "Damage"  "public"
+Check-Field  "Projectile"        "FromNpc" "public"
+Check-Method "GameInfo"          "get_ProjectileHitLayer"    @()
+Check-Method "GameInfo"          "get_NpcProjectileHitLayer" @()
+Check-Method "ParticleManager"   "Play"               @("String", "Vector3", "Vector3")
+Check-Method "AudioManager"      "PlayClipAt"         @("String", "Vector3", "Boolean", "AudioDistance", "Single", "Single")
+Check-Method "PlayerManager"     "GetPlayerFromBodyPart" @("Transform")
+Check-Method "MoneyManager"      "get_Money"          @()
+
+Write-Host "`n-- Pirates: boat & islands --"
+Check-Method "BoatManager"       "get_Boat"           @()
+Check-Field  "SpawnManager"      "PlayerSpawnPos" "public"
+Check-Field  "SpawnManager"      "PlayerSpawnRot" "public"
+Check-Field  "SpawnManager"      "BoatSpawnPos"   "public"
+if ($module.GetType("BoatMotor")) { Write-Host "  ok    type BoatMotor (used to find the bow)" -ForegroundColor Green }
+else { Write-Host "  FAIL  type BoatMotor missing - bow detection falls back to +Z" -ForegroundColor Red; $fail++ }
+
+Write-Host "`n-- Harmony argument names (pirates) --"
+foreach ($spec in @(@("ExplosionManager","ServerExplode",@("item","info")), @("ProjectileManager","Hit",@("projectile","hit")))) {
+    $mm = (Get-Type $spec[0]).Methods | Where-Object { $_.Name -eq $spec[1] } | Select-Object -First 1
+    $have = @($mm.Parameters | ForEach-Object { $_.Name })
+    $missing = @($spec[2] | Where-Object { $have -notcontains $_ })
+    if ($missing.Count -eq 0) { Write-Host "  ok    $($spec[0]).$($spec[1]) has ($($spec[2] -join ', '))" -ForegroundColor Green }
+    else { Write-Host "  FAIL  $($spec[0]).$($spec[1]) lacks ($($missing -join ', '))" -ForegroundColor Red; $fail++ }
+}
+
 Write-Host "`n-- Harmony argument names --"
 $td = (Get-Type "PlayerVitals").Methods | Where-Object { $_.Name -eq "TakeDamage" } | Select-Object -First 1
 $pn = @($td.Parameters | ForEach-Object { $_.Name })

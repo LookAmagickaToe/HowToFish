@@ -322,6 +322,11 @@ namespace Expanded.Tests
             return 1;
         }
 
-        private static int Main() => Run();
+        private static int Main()
+        {
+            int a = Run();
+            int b = ContentTests.Run();
+            return a | b;
+        }
     }
 }

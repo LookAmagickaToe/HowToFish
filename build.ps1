@@ -24,7 +24,7 @@ $refNames = @(
     "UnityEngine.dll", "UnityEngine.CoreModule.dll", "UnityEngine.PhysicsModule.dll",
     "UnityEngine.AnimationModule.dll", "UnityEngine.InputLegacyModule.dll",
     "UnityEngine.IMGUIModule.dll", "UnityEngine.TextRenderingModule.dll",
-    "UnityEngine.AssetBundleModule.dll"
+    "UnityEngine.AssetBundleModule.dll", "UnityEngine.ParticleSystemModule.dll"
 )
 
 $refs = @()

@@ -113,8 +113,23 @@ namespace Expanded.Quests
         public List<QuestStep> Steps = new List<QuestStep>();
         public List<Reward> Rewards = new List<Reward>();
 
+        // What the giver says, depending on where the player is with this quest. Each falls back
+        // to something sensible so a quest without dialogue still reads correctly.
+        public string OfferText;
+        public string ActiveText;
+        public string DoneText;
+
         public QuestStep StepAt(int index) =>
             index >= 0 && index < Steps.Count ? Steps[index] : null;
+
+        public string Offer => string.IsNullOrEmpty(OfferText) ? Summary : OfferText;
+        public string Reminder(int stepIndex)
+        {
+            QuestStep s = StepAt(stepIndex);
+            string step = s != null ? s.Text : "";
+            return string.IsNullOrEmpty(ActiveText) ? step : ActiveText + (step.Length > 0 ? "\n\n(" + step + ")" : "");
+        }
+        public string Done => string.IsNullOrEmpty(DoneText) ? "Good work on \"" + Title + "\"." : DoneText;
     }
 
     public enum QuestStatus { Locked, Available, Active, Completed }

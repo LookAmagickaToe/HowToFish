@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using FishNet;
 using UnityEngine;
 
@@ -6,15 +7,15 @@ namespace Expanded.Pirates
 {
     /// <summary>
     /// The enemy ship. Sits on a runtime-built networked prefab, so it exists on every peer; only
-    /// the host steers, and FishNet's NetworkTransform replicates the result.
+    /// the host steers, fires and takes damage, and FishNet's NetworkTransform replicates movement.
     ///
-    /// Sailing model: hold station at a broadside distance from the party, circling rather than
-    /// ramming, so the fight reads as a naval duel instead of a chase. The ship stays on the water
-    /// surface and steers away from land rather than beaching itself.
+    /// Sailing model: close to a broadside distance, then circle the party rather than ramming, so
+    /// the fight reads as a naval duel. She only fires when the target is actually abeam, which is
+    /// what makes positioning your own boat worth doing.
     /// </summary>
     internal sealed class PirateShip : MonoBehaviour
     {
-        internal enum Stance { Closing, Broadside, Withdrawing }
+        internal enum Stance { Closing, Broadside, Withdrawing, Leaving, Sinking }
 
         internal static PirateShip Active { get; private set; }
 
@@ -25,23 +26,30 @@ namespace Expanded.Pirates
         private float _speed;
         private bool _aground;
 
+        private float _nextVolley;
+        private float _spawnedAt;
+        private float _sinkTime;
+        private float _lastStatusSent = -10f;
+        private bool _statusDirty = true;
+
+        // Crew-reported gun damage, rate-limited per second so a bad client cannot one-shot her.
+        private float _gunDamageWindowStart;
+        private float _gunDamageInWindow;
+
+        private readonly List<Collider> _hull = new List<Collider>();
+
         internal Stance CurrentStance => _stance;
         internal float Health { get; private set; }
         internal float MaxHealth { get; private set; }
-        internal bool Alive => Health > 0f;
+        internal bool Alive => Health > 0f && _stance != Stance.Sinking;
 
-        private PirateConfig Cfg => PirateModule.Cfg;
+        private static PirateConfig Cfg => PirateModule.Cfg;
 
         private void Awake()
         {
             _bobPhase = UnityEngine.Random.Range(0f, Mathf.PI * 2f);
             _circleDir = UnityEngine.Random.Range(0, 2) == 0 ? -1 : 1;
-        }
-
-        private void OnEnable()
-        {
-            // Only the host's instance is the authoritative one; clients hold a replicated copy.
-            if (InstanceFinder.IsServerStarted) Active = this;
+            GetComponentsInChildren(true, _hull);
         }
 
         private void OnDestroy()
@@ -53,23 +61,90 @@ namespace Expanded.Pirates
         {
             MaxHealth = Mathf.Max(1f, maxHealth);
             Health = MaxHealth;
+            _spawnedAt = Time.time;
+            _nextVolley = Time.time + Cfg.FirstVolleyDelay.Value;
             Active = this;
+            _statusDirty = true;
         }
 
-        /// <summary>Host-side damage. Returns true if this hit sank her.</summary>
-        internal bool ServerDamage(float amount, string source)
+        // ------------------------------------------------------------------ damage
+
+        /// <summary>
+        /// Explosion damage. Distance is measured to the nearest point of the hull, not the ship's
+        /// centre: she is 13 m long, and a charge against her stern should count.
+        /// </summary>
+        internal void ServerTakeExplosion(Vector3 at, float radius, int baseDamage)
         {
-            if (!InstanceFinder.IsServerStarted || !Alive) return false;
+            if (!Alive) return;
 
-            Health = Mathf.Max(0f, Health - Mathf.Abs(amount));
-            Diag.Info("Pirate ship took " + amount.ToString("0") + " from " + source +
-                      " -> " + Health.ToString("0") + "/" + MaxHealth.ToString("0"));
+            float dist = DistanceToHull(at);
+            float reach = Mathf.Max(0.5f, radius) * Cfg.ExplosionReach.Value;
+            if (dist > reach) return;
 
-            if (Health > 0f) return false;
+            // Full damage in the inner half, linear falloff to nothing at the edge of reach.
+            float inner = reach * 0.5f;
+            float falloff = dist <= inner ? 1f : 1f - Mathf.InverseLerp(inner, reach, dist);
+            float damage = baseDamage * falloff * Cfg.ExplosionDamageMultiplier.Value;
+            if (damage < 1f) return;
 
-            Diag.Info("Pirate ship destroyed.");
-            return true;
+            ServerDamage(damage, "explosion " + dist.ToString("0.0") + "m from hull");
         }
+
+        /// <summary>Gun damage reported by a shooter. Capped per second as a sanity limit.</summary>
+        internal void ServerTakeGunfire(int reported, string shooter)
+        {
+            if (!Alive) return;
+
+            if (Time.time - _gunDamageWindowStart > 1f)
+            {
+                _gunDamageWindowStart = Time.time;
+                _gunDamageInWindow = 0f;
+            }
+
+            float allowed = Mathf.Max(0f, Cfg.MaxGunDamagePerSecond.Value - _gunDamageInWindow);
+            float damage = Mathf.Min(Mathf.Clamp(reported, 0, 500) * Cfg.GunDamageMultiplier.Value, allowed);
+            if (damage < 0.5f) return;
+
+            _gunDamageInWindow += damage;
+            ServerDamage(damage, "gunfire from " + shooter);
+        }
+
+        private void ServerDamage(float amount, string source)
+        {
+            if (!InstanceFinder.IsServerStarted || !Alive) return;
+
+            Health = Mathf.Max(0f, Health - amount);
+            _statusDirty = true;
+            Diag.Info("Pirate ship hit: -" + amount.ToString("0") + " (" + source + ") -> " +
+                      Health.ToString("0") + "/" + MaxHealth.ToString("0"));
+
+            if (Health <= 0f) BeginSinking();
+        }
+
+        private float DistanceToHull(Vector3 p)
+        {
+            float best = float.MaxValue;
+            for (int i = 0; i < _hull.Count; i++)
+            {
+                Collider c = _hull[i];
+                if (c == null || !c.enabled) continue;
+                // Collider.bounds works for every collider type, including the concave mesh colliders
+                // the hull uses, where ClosestPoint would not.
+                float d = Vector3.Distance(p, c.bounds.ClosestPoint(p));
+                if (d < best) best = d;
+            }
+            return best == float.MaxValue ? Vector3.Distance(p, transform.position) : best;
+        }
+
+        private void BeginSinking()
+        {
+            SetStance(Stance.Sinking);
+            _sinkTime = 0f;
+            _statusDirty = true;
+            PirateModule.Instance?.OnShipSunk(this);
+        }
+
+        // ------------------------------------------------------------------ loop
 
         private void Update()
         {
@@ -80,12 +155,33 @@ namespace Expanded.Pirates
             {
                 float dt = Time.deltaTime;
                 if (dt <= 0f) return;
-                Sail(dt);
+
+                if (_stance == Stance.Sinking) { Sink(dt); }
+                else
+                {
+                    CheckFightTimeout();
+                    Sail(dt);
+                    TryFireBroadside();
+                }
+
+                SendStatusIfDue();
             }
             catch (Exception e)
             {
                 Diag.Exception("PirateShip.Update", e);
             }
+        }
+
+        private void CheckFightTimeout()
+        {
+            if (_stance == Stance.Leaving) return;
+
+            bool partyDown = PlayerManager.AlivePlayers.Count == 0;
+            bool tooLong = Time.time - _spawnedAt > Cfg.MaxFightSeconds.Value;
+            if (!partyDown && !tooLong) return;
+
+            SetStance(Stance.Leaving);
+            PirateModule.Instance?.OnShipLeaving(partyDown ? "the crew is down" : "they tire of the fight");
         }
 
         // ------------------------------------------------------------------ sailing
@@ -101,6 +197,12 @@ namespace Expanded.Pirates
             Vector3 toTargetDir = distance > 0.01f ? toTarget / distance : transform.forward;
 
             UpdateStance(distance);
+
+            if (_stance == Stance.Leaving && distance > Cfg.SpawnDistance.Value * 1.6f)
+            {
+                PirateModule.Instance?.DespawnShip("sailed away");
+                return;
+            }
 
             Vector3 heading = DesiredHeading(toTargetDir, distance);
             heading = AvoidLand(pos, heading);
@@ -124,6 +226,7 @@ namespace Expanded.Pirates
         private void UpdateStance(float distance)
         {
             _stanceTime += Time.deltaTime;
+            if (_stance == Stance.Leaving) return;
 
             float standoff = Cfg.StandoffDistance.Value;
             switch (_stance)
@@ -136,7 +239,7 @@ namespace Expanded.Pirates
                     // Drift too close and she pulls away; too far and she closes again.
                     if (distance < standoff * 0.6f) SetStance(Stance.Withdrawing);
                     else if (distance > standoff * 1.8f) SetStance(Stance.Closing);
-                    // Periodically swap sides so both broadsides get used.
+                    // Periodically come about so both broadsides get used.
                     else if (_stanceTime > Cfg.CircleSwapSeconds.Value)
                     {
                         _stanceTime = 0f;
@@ -156,6 +259,7 @@ namespace Expanded.Pirates
             if (_stance == s) return;
             _stance = s;
             _stanceTime = 0f;
+            _statusDirty = true;
             Diag.Debug("Pirate ship stance -> " + s);
         }
 
@@ -167,6 +271,7 @@ namespace Expanded.Pirates
                     return toTargetDir;
 
                 case Stance.Withdrawing:
+                case Stance.Leaving:
                     return -toTargetDir;
 
                 default:
@@ -188,7 +293,7 @@ namespace Expanded.Pirates
             Vector3 eye = pos + Vector3.up * 1.5f;
             int mask = GameInfo.LevelLayer.value;
 
-            if (!Physics.Raycast(eye, heading, probe, mask, QueryTriggerInteraction.Ignore))
+            if (!HitsLand(eye, heading, probe, mask))
             {
                 _aground = false;
                 return heading;
@@ -201,24 +306,35 @@ namespace Expanded.Pirates
             {
                 float angle = step * 25f;
                 Vector3 left = Quaternion.Euler(0f, -angle, 0f) * heading;
-                if (!Physics.Raycast(eye, left, probe, mask, QueryTriggerInteraction.Ignore)) return left;
+                if (!HitsLand(eye, left, probe, mask)) return left;
 
                 Vector3 right = Quaternion.Euler(0f, angle, 0f) * heading;
-                if (!Physics.Raycast(eye, right, probe, mask, QueryTriggerInteraction.Ignore)) return right;
+                if (!HitsLand(eye, right, probe, mask)) return right;
             }
 
-            // Boxed in: reverse course.
-            return -heading;
+            return -heading; // boxed in: reverse course
+        }
+
+        /// <summary>Land probe that ignores the ship's own colliders, which sit on the same layer.</summary>
+        private bool HitsLand(Vector3 eye, Vector3 dir, float dist, int mask)
+        {
+            RaycastHit[] hits = Physics.RaycastAll(eye, dir, dist, mask, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < hits.Length; i++)
+            {
+                if (hits[i].collider == null) continue;
+                if (hits[i].collider.transform.IsChildOf(transform)) continue;
+                return true;
+            }
+            return false;
         }
 
         private float SurfaceY()
         {
-            float water = 0f;
-            try { water = WaterManager.WaterHeight; } catch { /* not ready */ }
-            return water + Cfg.Draft.Value + Mathf.Sin(Time.time * 0.6f + _bobPhase) * Cfg.BobHeight.Value;
+            return PirateModule.WaterY() + Cfg.Waterline.Value +
+                   Mathf.Sin(Time.time * 0.6f + _bobPhase) * Cfg.BobHeight.Value;
         }
 
-        /// <summary>Gentle roll, exaggerated while turning, so she looks like she has weight.</summary>
+        /// <summary>Gentle roll, leaning into the turn while circling, so she looks like she has weight.</summary>
         private void ApplyRoll(float dt)
         {
             float wave = Mathf.Sin(Time.time * 0.8f + _bobPhase) * Cfg.RollDegrees.Value;
@@ -227,6 +343,93 @@ namespace Expanded.Pirates
             Vector3 e = transform.eulerAngles;
             Quaternion wanted = Quaternion.Euler(0f, e.y, wave + turnRoll);
             transform.rotation = Quaternion.Slerp(transform.rotation, wanted, dt * 2f);
+        }
+
+        // ------------------------------------------------------------------ gunnery
+
+        /// <summary>
+        /// Fires the broadside facing the target, and only when the target is actually abeam.
+        /// Guns point sideways on a ship like this: a target dead ahead is safe.
+        /// </summary>
+        private void TryFireBroadside()
+        {
+            if (_stance != Stance.Broadside) return;
+            if (Time.time < _nextVolley) return;
+
+            Vector3 target = PirateModule.PartyPosition();
+            Vector3 rel = target - transform.position;
+            rel.y = 0f;
+            if (rel.sqrMagnitude < 1f) return;
+
+            float side = Vector3.Dot(rel.normalized, transform.right);
+            if (Mathf.Abs(side) < Mathf.Cos(Cfg.FiringArcDegrees.Value * Mathf.Deg2Rad)) return;
+
+            _nextVolley = Time.time + Cfg.VolleyInterval.Value;
+            StartCoroutine(Volley(side > 0f ? 1 : -1));
+        }
+
+        private System.Collections.IEnumerator Volley(int side)
+        {
+            IReadOnlyList<Vector3> ports = PirateModule.Instance != null
+                ? PirateModule.Instance.GunPorts(side)
+                : null;
+            if (ports == null || ports.Count == 0) yield break;
+
+            Diag.Debug("Pirate broadside, " + (side > 0 ? "starboard" : "port") + ", " + ports.Count + " guns.");
+
+            for (int i = 0; i < ports.Count; i++)
+            {
+                if (!Alive) yield break;
+
+                Vector3 origin = transform.TransformPoint(ports[i]);
+                Vector3 aim = PirateModule.PartyPosition();
+
+                // Spread grows with range: close shots are deadly, long ones are a gamble.
+                float range = Vector3.Distance(origin, aim);
+                float spread = Cfg.SpreadAtStandoff.Value * range / Mathf.Max(1f, Cfg.StandoffDistance.Value);
+                Vector2 jitter = UnityEngine.Random.insideUnitCircle * spread;
+                aim += new Vector3(jitter.x, 0f, jitter.y);
+
+                Vector3 vel = Cannonballs.AimAt(origin, aim, Cfg.CannonSpeed.Value, Cfg.CannonGravity.Value);
+                Cannonballs.Fire(origin, vel, true);
+
+                yield return new WaitForSeconds(Cfg.VolleyStagger.Value);
+            }
+        }
+
+        // ------------------------------------------------------------------ sinking
+
+        private void Sink(float dt)
+        {
+            _sinkTime += dt;
+
+            // Settles by the stern and rolls onto her side, like she is taking on water.
+            Vector3 pos = transform.position;
+            pos.y -= Cfg.SinkSpeed.Value * dt * Mathf.Clamp01(_sinkTime / 2f);
+            transform.position = pos;
+
+            Vector3 e = transform.eulerAngles;
+            float roll = Mathf.Min(35f, _sinkTime * 4f);
+            float pitch = Mathf.Min(15f, _sinkTime * 1.5f);
+            transform.rotation = Quaternion.Slerp(transform.rotation,
+                                                  Quaternion.Euler(pitch, e.y, roll), dt * 0.8f);
+
+            if (_sinkTime >= Cfg.SinkSeconds.Value)
+                PirateModule.Instance?.DespawnShip("sunk");
+        }
+
+        // ------------------------------------------------------------------ status
+
+        /// <summary>Health bar feed: on change (throttled), plus a heartbeat for late joiners.</summary>
+        private void SendStatusIfDue()
+        {
+            bool heartbeat = Time.time - _lastStatusSent > 1f;
+            bool throttled = Time.time - _lastStatusSent < 0.1f;
+            if (!(_statusDirty && !throttled) && !heartbeat) return;
+
+            _statusDirty = false;
+            _lastStatusSent = Time.time;
+            PirateModule.BroadcastStatus(true, Health, MaxHealth, _stance);
         }
     }
 }

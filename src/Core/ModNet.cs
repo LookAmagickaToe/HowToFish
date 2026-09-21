@@ -35,10 +35,13 @@ namespace Expanded
         private static bool _serializersInstalled;
         private static bool _serverHooked, _clientHooked;
 
-        private static readonly Dictionary<byte, Action<NetworkConnection, BinaryReader>> ServerHandlers =
-            new Dictionary<byte, Action<NetworkConnection, BinaryReader>>();
-        private static readonly Dictionary<byte, Action<BinaryReader>> ClientHandlers =
-            new Dictionary<byte, Action<BinaryReader>>();
+        // Several modules may listen to the same message (e.g. Hello), so each id holds a list.
+        // Handlers are registered once per game launch (in OnEnable), never per session, so the
+        // lists cannot accumulate duplicates across sessions.
+        private static readonly Dictionary<byte, List<Action<NetworkConnection, BinaryReader>>> ServerHandlers =
+            new Dictionary<byte, List<Action<NetworkConnection, BinaryReader>>>();
+        private static readonly Dictionary<byte, List<Action<BinaryReader>>> ClientHandlers =
+            new Dictionary<byte, List<Action<BinaryReader>>>();
 
         internal static bool ServerReady => InstanceFinder.IsServerStarted;
         internal static bool ClientReady => InstanceFinder.IsClientStarted;
@@ -96,16 +99,28 @@ namespace Expanded
 
         // ------------------------------------------------------------------ handler registration
 
-        /// <summary>Handles a message sent by a client, on the host. Replaces any previous handler.</summary>
+        /// <summary>
+        /// Handles a message sent by a client, on the host. Call once per game launch (OnEnable):
+        /// handlers accumulate, they are not replaced.
+        /// </summary>
         internal static void OnServer(byte messageId, Action<NetworkConnection, BinaryReader> handler)
         {
-            ServerHandlers[messageId] = handler;
+            List<Action<NetworkConnection, BinaryReader>> list;
+            if (!ServerHandlers.TryGetValue(messageId, out list))
+                ServerHandlers[messageId] = list = new List<Action<NetworkConnection, BinaryReader>>();
+            list.Add(handler);
         }
 
-        /// <summary>Handles a message sent by the host, on a client (the host receives these too).</summary>
+        /// <summary>
+        /// Handles a message sent by the host, on a client (the host receives these too). Call once
+        /// per game launch; handlers accumulate.
+        /// </summary>
         internal static void OnClient(byte messageId, Action<BinaryReader> handler)
         {
-            ClientHandlers[messageId] = handler;
+            List<Action<BinaryReader>> list;
+            if (!ClientHandlers.TryGetValue(messageId, out list))
+                ClientHandlers[messageId] = list = new List<Action<BinaryReader>>();
+            list.Add(handler);
         }
 
         // ------------------------------------------------------------------ sending
@@ -169,51 +184,69 @@ namespace Expanded
 
         private static void OnServerPacket(NetworkConnection conn, ModPacket packet, Channel channel)
         {
-            Dispatch(packet, (id, reader) =>
+            byte id;
+            if (!Validate(packet, "server", out id)) return;
+
+            List<Action<NetworkConnection, BinaryReader>> list;
+            if (!ServerHandlers.TryGetValue(id, out list) || list.Count == 0)
             {
-                Action<NetworkConnection, BinaryReader> h;
-                if (ServerHandlers.TryGetValue(id, out h)) h(conn, reader);
-                else Diag.Debug("ModNet: no server handler for message " + id + ".");
-            }, "server");
+                Diag.Debug("ModNet: no server handler for message " + id + ".");
+                return;
+            }
+
+            // Every handler gets its own reader over the same bytes, so one handler reading more
+            // or less than expected cannot corrupt what the next one sees.
+            for (int i = 0; i < list.Count; i++)
+                Invoke(packet, id, "server", br => list[i](conn, br));
         }
 
         private static void OnClientPacket(ModPacket packet, Channel channel)
         {
-            Dispatch(packet, (id, reader) =>
+            byte id;
+            if (!Validate(packet, "client", out id)) return;
+
+            List<Action<BinaryReader>> list;
+            if (!ClientHandlers.TryGetValue(id, out list) || list.Count == 0)
             {
-                Action<BinaryReader> h;
-                if (ClientHandlers.TryGetValue(id, out h)) h(reader);
-                else Diag.Debug("ModNet: no client handler for message " + id + ".");
-            }, "client");
+                Diag.Debug("ModNet: no client handler for message " + id + ".");
+                return;
+            }
+
+            for (int i = 0; i < list.Count; i++)
+                Invoke(packet, id, "client", br => list[i](br));
         }
 
-        /// <summary>
-        /// Shared receive path. A malformed or hostile packet must never take down the game, so every
-        /// failure is contained and logged rather than thrown into FishNet's receive loop.
-        /// </summary>
-        private static void Dispatch(ModPacket packet, Action<byte, BinaryReader> invoke, string side)
+        private static bool Validate(ModPacket packet, string side, out byte id)
         {
+            id = 0;
             if (packet.Data == null || packet.Data.Length < 2)
             {
                 Diag.Warn("ModNet: ignored empty packet on " + side + ".");
-                return;
+                return false;
             }
 
             byte protocol = packet.Data[0];
-            byte id = packet.Data[1];
-
+            id = packet.Data[1];
             if (protocol != Protocol)
             {
                 ProtocolMismatch(protocol, side);
-                return;
+                return false;
             }
+            return true;
+        }
 
+        /// <summary>
+        /// A malformed or hostile packet must never take down the game, so every failure is contained
+        /// and logged rather than thrown into FishNet's receive loop.
+        /// </summary>
+        private static void Invoke(ModPacket packet, byte id, string side, Action<BinaryReader> handler)
+        {
             try
             {
                 using (var ms = new MemoryStream(packet.Data, 2, packet.Data.Length - 2, false))
                 using (var br = new BinaryReader(ms, Encoding.UTF8))
                 {
-                    invoke(id, br);
+                    handler(br);
                 }
             }
             catch (Exception e)
@@ -263,11 +296,19 @@ namespace Expanded
         internal const byte DialogueOpen = 3;    // show a dialogue page
         internal const byte UnlockChanged = 4;   // capability unlocked/revoked
         internal const byte EventBanner = 5;     // world event announcement
+        internal const byte CannonFired = 6;     // a ball left a muzzle: clients animate it
+        internal const byte CannonImpact = 7;    // a ball landed: clients remove their copy
+        internal const byte ShipStatus = 8;      // pirate ship health/state for the health bar
+        internal const byte UnlockSnapshot = 9;  // every unlock the host knows, for late joiners
+        internal const byte NpcSet = 10;         // which story NPCs are present, with quest markers
 
         // clients -> host
         internal const byte RequestAccept = 20;  // accept an offered quest
         internal const byte DialogueChoice = 21; // picked a dialogue option
         internal const byte RequestTalk = 22;    // interacted with a mod NPC
         internal const byte RequestBuy = 23;     // buy from the mod shop
+        internal const byte ShipHit = 24;        // my bullet hit the pirate ship
+        internal const byte RequestFire = 25;    // fire the deck cannon I am standing at
+        internal const byte Hello = 26;          // I just joined: send me the current state
     }
 }

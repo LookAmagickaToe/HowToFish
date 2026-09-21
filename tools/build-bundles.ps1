@@ -51,6 +51,33 @@ Copy-Item (Join-Path $kenneyFbx "Textures\*.png") $texDir -Force
 $staged = (Get-ChildItem $kit -Filter *.fbx).Count
 Write-Host "  $staged model(s), $((Get-ChildItem $texDir -Filter *.png).Count) texture(s)"
 
+# --- Quaternius characters (optional) -----------------------------------------
+$quat = Join-Path $raw "quaternius_pirate-kit"
+$chars = Join-Path $Project "Assets\Characters"
+if (Test-Path $chars) { Get-ChildItem $chars -Filter *.fbx | ForEach-Object { [IO.File]::Delete($_.FullName) } }
+if (Test-Path $quat) {
+    New-Item -ItemType Directory -Force $chars | Out-Null
+    # Characters, plus the handful of props the story hands to them or scatters as loot.
+    $want = '^(Characters_.*|Prop_Chest_Gold|Prop_Coins|Prop_GoldBag|Prop_Bottle_1|Weapon_Cutlass|Weapon_Pistol)\.fbx$'
+    Get-ChildItem $quat -Recurse -Filter *.fbx | Where-Object { $_.Name -match $want } |
+        ForEach-Object { Copy-Item $_.FullName $chars -Force }
+    Write-Host "  $((Get-ChildItem $chars -Filter *.fbx).Count) character/prop model(s) from Quaternius"
+
+    # The palette every Quaternius model samples. Searched anywhere under assets\raw so it works
+    # whichever download it came from.
+    $charTex = Join-Path $chars "Textures"
+    New-Item -ItemType Directory -Force $charTex | Out-Null
+    $atlas = Get-ChildItem $raw -Recurse -Filter "Atlas_Pirate*.png" -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($atlas) {
+        Copy-Item $atlas.FullName (Join-Path $charTex "Atlas_Pirate.png") -Force
+        Write-Host "  colour atlas: $($atlas.FullName)"
+    } else {
+        Write-Host "  colour atlas: MISSING - characters will be grey (see ASSETS.md)"
+    }
+} else {
+    Write-Host "  (no Quaternius kit found - characters bundle skipped)"
+}
+
 # --- editor script -----------------------------------------------------------
 $editorDir = Join-Path $Project "Assets\Editor"
 New-Item -ItemType Directory -Force $editorDir | Out-Null
@@ -83,6 +110,9 @@ if ($Install) {
     $plugins = "C:\Program Files (x86)\Steam\steamapps\common\How to Fish\How to Fish\BepInEx\plugins"
     $dest = Join-Path $plugins "ExpandedAssets"
     New-Item -ItemType Directory -Force $dest | Out-Null
-    Copy-Item $bundle $dest -Force
+    foreach ($f in @("pirates", "characters", "characters.json")) {
+        $src = Join-Path $outDir $f
+        if (Test-Path $src) { Copy-Item $src $dest -Force; Write-Host "Installed $f" }
+    }
     Write-Host "Installed to $dest"
 }

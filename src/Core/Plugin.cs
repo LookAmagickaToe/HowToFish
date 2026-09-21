@@ -59,6 +59,7 @@ namespace Expanded
 
             ModSave.Load();
             ModNet.InstallSerializers();
+            SharedState.RegisterHandlers();
             ModAssets.Load();
 
             RegisterModules();
@@ -74,6 +75,7 @@ namespace Expanded
             Modules.Add(new SeagullSwarm.SwarmModule());
             Modules.Add(new Expanded.Quests.QuestModule());
             Modules.Add(new Expanded.Pirates.PirateModule());
+            Modules.Add(new Expanded.Npcs.NpcModule());
             Modules.Add(new AssetsModule());
         }
 
@@ -204,12 +206,18 @@ namespace Expanded
                 if (server) ModNet.HookServer();
                 if (client) ModNet.HookClient();
 
+                if (server) SharedState.LoadFromSave();
+
                 foreach (ModuleBase m in Modules)
                 {
                     if (!m.IsEnabled) continue;
                     try { m.BeginSession(server); }
                     catch (Exception e) { Diag.Exception("Module " + m.Id + ".OnSessionStart", e); }
                 }
+
+                // A joining client asks the host for everything it missed: unlocks, journal, and
+                // any fight already in progress. The host already has all of it.
+                if (client && !server) ModNet.SendToServer(Msg.Hello);
             }
             else
             {
@@ -220,6 +228,7 @@ namespace Expanded
                     catch (Exception e) { Diag.Exception("Module " + m.Id + ".OnSessionEnd", e); }
                 }
                 ModNet.Unhook();
+                SharedState.Clear();
                 ModSave.SaveIfDirty(true);
             }
         }
@@ -250,6 +259,18 @@ namespace Expanded
 
         private void OnGUI()
         {
+            // Module UI first (health bars, prompts, dialogue), then the debug overlay on top.
+            if (_sessionRunning)
+            {
+                for (int i = 0; i < Modules.Count; i++)
+                {
+                    ModuleBase m = Modules[i];
+                    if (!m.IsEnabled || !m.SessionActive) continue;
+                    try { m.OnGUI(); }
+                    catch (Exception e) { Diag.Exception("Module " + m.Id + ".OnGUI", e); }
+                }
+            }
+
             if (!_overlayVisible || !_overlayEnabled.Value) return;
 
             const int w = 420;

@@ -63,6 +63,9 @@ namespace Expanded
         internal virtual void OnSessionEnd() { }
         internal virtual void Tick() { }
 
+        /// <summary>Immediate-mode UI for this module. Called every frame while a session runs.</summary>
+        internal virtual void OnGUI() { }
+
         /// <summary>Debug hotkey pressed. Host-only actions must check IsServer themselves.</summary>
         internal virtual void OnDebugKey() { }
 

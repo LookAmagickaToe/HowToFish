@@ -3,28 +3,36 @@ using Expanded.Quests;
 namespace Expanded.Content
 {
     /// <summary>
-    /// Act 1 of the pirate storyline: the gulls turn, a wreck chart surfaces, and someone else is
-    /// already looking for it.
+    /// Act 1 of the pirate storyline: the gulls turn, a chart turns up on an albatross, and someone
+    /// else wants it badly enough to bring cannons.
     ///
-    /// Design rules for content here:
+    /// Content rules:
     ///  - Objective keys are prefab names (lowercase), never localised display names.
-    ///  - Every quest is reachable with vanilla systems, or gated behind a flag a module raises.
-    ///  - Quests that depend on an unfinished module simply stay locked; they never break the chain.
+    ///  - Every quest is offered by a named character in StoryNpcs, matched on Giver.
+    ///  - Quests that depend on a module simply stay locked until its flag is raised; nothing in the
+    ///    chain can dead-end.
     /// </summary>
-    internal static class PirateStory
+    public static class PirateStory
     {
-        // Flags shared with other modules. Kept as constants so a typo is a compile error.
-        internal const string FlagOmens = "story.omens";
-        internal const string FlagFlock = "story.flock";
-        internal const string FlagChart = "story.chart";
-        internal const string FlagPiratesBeaten = "pirates.defeated";
+        // Flags shared with other modules. Constants, so a typo is a compile error.
+        public const string FlagOmens = "story.omens";
+        public const string FlagFlock = "story.flock";
+        public const string FlagChart = "story.chart";
+        public const string FlagSwarmDefeated = "swarm.defeated";
+        public const string FlagPiratesBeaten = "pirates.defeated";
 
-        // Unlock keys other modules read from ModSave.
-        internal const string UnlockCannon = "weapon.cannon";
-        internal const string UnlockPirateShip = "ship.pirate";
-        internal const string UnlockChartShop = "shop.charts";
+        // Quest ids other modules key off.
+        public const string QuestOmens = "act1.omens";
+        public const string QuestFlock = "act1.flock";
+        public const string QuestBigFish = "act1.bigfish";
+        public const string QuestPirates = "act1.pirates";
 
-        internal static void Register(QuestEngine e)
+        // Unlock keys other modules read.
+        public const string UnlockCannon = "weapon.cannon";
+        public const string UnlockPirateShip = "ship.pirate";
+        public const string UnlockChartShop = "shop.charts";
+
+        public static void Register(QuestEngine e)
         {
             e.Register(BadOmens());
             e.Register(TheFlockBreaks());
@@ -32,20 +40,21 @@ namespace Expanded.Content
             e.Register(ColoursAtDawn());
         }
 
-        /// <summary>Opening beat: the player notices the gulls are not behaving normally.</summary>
         private static QuestDef BadOmens()
         {
             var q = new QuestDef
             {
-                Id = "act1.omens",
+                Id = QuestOmens,
                 Title = "Bad Omens",
-                Giver = "the harbour",
-                Summary = "The gulls here have lost their manners. Thin them out and see what happens."
+                Giver = StoryNpcs.OldSalt,
+                Summary = "The gulls here have lost their manners.",
+                OfferText = "Gulls been screaming at me all week. Not at the fish. At me.\n" +
+                            "Thin 'em out, would you? Three should do it. Then we'll see who's listening.",
+                ActiveText = "Three gulls. They're the white ones. With the attitude.",
+                DoneText = "Three down and the rest went quiet. That's not better. That's worse."
             };
-            q.Steps.Add(new QuestStep(
-                "Kill 3 seagulls",
-                Objective.Kill("seagull", 3),
-                "That got their attention. Something out there noticed."));
+            q.Steps.Add(new QuestStep("Kill 3 seagulls", Objective.Kill("seagull", 3),
+                                      "The gulls fall silent. Something out there noticed."));
             q.Rewards.Add(Reward.Money(150));
             q.Rewards.Add(Reward.Flag(FlagOmens));
             return q;
@@ -56,16 +65,20 @@ namespace Expanded.Content
         {
             var q = new QuestDef
             {
-                Id = "act1.flock",
+                Id = QuestFlock,
                 Title = "The Flock Breaks",
-                Giver = "the harbour",
-                Summary = "They came back with a leader. Break the flock and search what it was guarding."
+                Giver = StoryNpcs.OldSalt,
+                Summary = "They came back with a leader. Break the flock.",
+                OfferText = "When gulls go quiet it means they're fetching someone bigger.\n" +
+                            "Keep killing them and he'll come. Big bird. Bigger opinion of himself.\n" +
+                            "Take him down and bring me whatever he's carrying.",
+                ActiveText = "Keep at the gulls. The big one comes when they've had enough.",
+                DoneText = "An oilcloth chart, tied to his leg. Birds don't tie knots. Someone sent it."
             };
             q.Requires.Add(FlagOmens);
-            q.Steps.Add(new QuestStep(
-                "Survive the seagull swarm and kill the Albatross",
-                Objective.Flag("swarm.defeated"),
-                "The albatross goes down. Something was tangled around its leg: an oilcloth chart."));
+            q.Steps.Add(new QuestStep("Survive the seagull swarm and kill the Albatross",
+                                      Objective.Flag(FlagSwarmDefeated),
+                                      "Something was tangled round the albatross's leg: an oilcloth chart."));
             q.Rewards.Add(Reward.Money(400));
             q.Rewards.Add(Reward.Flag(FlagChart));
             q.Rewards.Add(Reward.Flag(FlagFlock));
@@ -73,44 +86,48 @@ namespace Expanded.Content
             return q;
         }
 
-        /// <summary>A soft, optional beat that rewards ordinary fishing rather than combat.</summary>
+        /// <summary>Optional, rewards ordinary fishing rather than combat.</summary>
         private static QuestDef AFishWorthSelling()
         {
             var q = new QuestDef
             {
-                Id = "act1.bigfish",
+                Id = QuestBigFish,
                 Title = "A Fish Worth Selling",
-                Giver = "the harbour",
-                Summary = "Charts cost money, and money means a catch worth bragging about."
+                Giver = StoryNpcs.OldSalt,
+                Summary = "Charts cost money, and money means a catch worth bragging about.",
+                OfferText = "Adventure's all well and good, but you still have to eat.\n" +
+                            "Bring in a pike of two kilos or better and I'll pay over the odds.",
+                ActiveText = "Two kilos of pike. Not two pike of one kilo. I know that trick.",
+                DoneText = "Now that's a fish. The buyer will remember your face. Might even be a good thing."
             };
             q.Requires.Add(FlagOmens);
-            // 2 kg, expressed in tenths of a gram so no float comparison is involved.
-            q.Steps.Add(new QuestStep(
-                "Catch a pike of at least 2 kg",
-                Objective.CatchWeight("pike", 20000),
-                "Now that is a fish. The buyer will remember your face."));
+            // 2 kg, in tenths of a gram so no float comparison is involved.
+            q.Steps.Add(new QuestStep("Catch a pike of at least 2 kg", Objective.CatchWeight("pike", 20000),
+                                      "Now that is a fish."));
             q.Rewards.Add(Reward.Money(300));
             return q;
         }
 
-        /// <summary>
-        /// Act 1 finale. Stays locked until the pirate module raises its flag, so the chain is safe
-        /// to ship before that module exists.
-        /// </summary>
+        /// <summary>Act 1 finale: the pirate fight, triggered by putting to sea while it is active.</summary>
         private static QuestDef ColoursAtDawn()
         {
             var q = new QuestDef
             {
-                Id = "act1.pirates",
+                Id = QuestPirates,
                 Title = "Colours at Dawn",
-                Giver = "the chart",
-                Summary = "The chart marks a wreck. So does someone else's chart, and they have cannons."
+                Giver = StoryNpcs.Anne,
+                Summary = "The chart marks a wreck. Someone else's chart does too, and they have cannons.",
+                OfferText = "Give me that. ...Oh. Oh no.\n" +
+                            "This marks the Widow's last haul. Her captain's been hunting this chart for a month.\n" +
+                            "He'll find you whether you like it or not. Better at sea, on your terms, than at the dock on his.\n" +
+                            "Take a swivel gun from the harbour - it's on your bow when you need it.",
+                ActiveText = "Put to sea. Far out. He'll come. Stand at the bow gun and make him regret it.",
+                DoneText = "You sank the Salted Widow. People are going to start telling stories about you. Wrong ones, mostly."
             };
             q.Requires.Add(FlagChart);
-            q.Steps.Add(new QuestStep(
-                "Drive off the pirate ship",
-                Objective.Flag(FlagPiratesBeaten),
-                "Their deck is yours. The wreck can wait; this hull will not."));
+            q.Steps.Add(new QuestStep("Put to sea and sink the pirate ship",
+                                      Objective.Flag(FlagPiratesBeaten),
+                                      "Their mast is yours. So is every cannon still above water."));
             q.Rewards.Add(Reward.Money(1000));
             q.Rewards.Add(Reward.Unlock(UnlockPirateShip));
             q.Rewards.Add(Reward.Unlock(UnlockCannon));
