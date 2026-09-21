@@ -26,6 +26,9 @@ namespace Expanded
         private static AssetBundle _bundle;
         private static Texture2D _atlas;
         private static Material _material;
+
+        /// <summary>Self-glow of the characters' own colours, 0 = none. Set from the Npcs config.</summary>
+        internal static float Brightness = 0.35f;
         private static readonly Dictionary<string, GameObject> Cache = new Dictionary<string, GameObject>(StringComparer.Ordinal);
         private static bool _warnedGrey;
 
@@ -118,6 +121,21 @@ namespace Expanded
                 if (_material.HasProperty("_BaseMap")) _material.SetTexture("_BaseMap", _atlas);
                 if (_material.HasProperty("_MainTex")) _material.SetTexture("_MainTex", _atlas);
                 _material.mainTexture = _atlas;
+                if (_material.HasProperty("_BaseColor")) _material.SetColor("_BaseColor", Color.white);
+
+                // The pirate palette is mostly black, charcoal and dark brown; under the game's light
+                // the figures read as dark silhouettes. Matte surface plus a faint glow of their own
+                // colours lifts the shadows without washing out the palette.
+                if (_material.HasProperty("_Metallic")) _material.SetFloat("_Metallic", 0f);
+                if (_material.HasProperty("_Smoothness")) _material.SetFloat("_Smoothness", 0.1f);
+                float glow = Mathf.Clamp01(Brightness);
+                if (glow > 0f && _material.HasProperty("_EmissionMap") && _material.HasProperty("_EmissionColor"))
+                {
+                    _material.SetTexture("_EmissionMap", _atlas);
+                    _material.SetColor("_EmissionColor", new Color(glow, glow, glow));
+                    _material.EnableKeyword("_EMISSION");
+                    _material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
+                }
             }
             else
             {

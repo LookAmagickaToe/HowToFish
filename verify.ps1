@@ -151,6 +151,10 @@ Check-Method "SpriteManager" "GetPickUpInput"  @()
 Check-Method "MoneyManager" "CanAfford"        @("Int32")
 Check-Method "MoneyManager" "RemoveMoney"      @("Int32", "Player")
 
+Write-Host "`n-- Story character voice (borrowed from vanilla NPCs) --"
+Check-Field  "NPC" "_mouthSource" $null
+Check-Field  "NPC" "_mouthVol"    $null
+
 Write-Host "`n-- Pirate hull (reaches into the game's boat) --"
 foreach ($f in @("_dynamicObjectColsHolder", "_itemColsHolder", "_dynamicObjectCols", "_steeringWheel", "_throttle", "_boatInteractable")) {
     Check-Field "Boat" $f $null

@@ -34,6 +34,7 @@ namespace Expanded.Npcs
         {
             public NpcDef Def;
             public GameObject Go;
+            public NpcVoice Voice;
             public Marker Marker;
             public float ResumeIdleAt = -1f;
         }
@@ -63,6 +64,16 @@ namespace Expanded.Npcs
         internal override void Configure(ConfigFile config)
         {
             _talkRange = config.Bind(Id, "TalkRange", 3f, "How close you must be to talk to a character.");
+
+            ConfigEntry<float> voice = config.Bind(Id, "VoiceVolume", 1f,
+                "Volume of the characters' mumbling, relative to the game's own NPCs (0 = silent).");
+            NpcVoice.VolumeScale = Mathf.Max(0f, voice.Value);
+            voice.SettingChanged += (s, e) => NpcVoice.VolumeScale = Mathf.Max(0f, voice.Value);
+
+            ConfigEntry<float> glow = config.Bind(Id, "CharacterBrightness", 0.35f,
+                "Faint self-glow of the story characters' colours (0-1). Their palette is very dark; " +
+                "0 shows it exactly as painted. Takes effect on the next session.");
+            ModCharacters.Brightness = glow.Value;
         }
 
         internal override void OnEnable() => RegisterNetHandlers();
@@ -323,7 +334,11 @@ namespace Expanded.Npcs
             {
                 _open = ReadPage(r);
                 Instance inst;
-                if (_spawned.TryGetValue(_open.NpcId, out inst)) Animate(inst, "Wave", false);
+                if (_spawned.TryGetValue(_open.NpcId, out inst))
+                {
+                    Animate(inst, "Wave", false);
+                    inst.Voice?.Speak(_open.Text);
+                }
             });
 
             ModNet.OnServer(Msg.RequestTalk, (conn, r) => HostHandleTalk(conn, r.ReadString()));
@@ -400,7 +415,7 @@ namespace Expanded.Npcs
             if (go == null) return;
             go.name = "Npc:" + def.Id;
 
-            var inst = new Instance { Def = def, Go = go, Marker = marker };
+            var inst = new Instance { Def = def, Go = go, Marker = marker, Voice = NpcVoice.Attach(go) };
             _spawned[def.Id] = inst;
             Animate(inst, "Idle", true);
             Diag.Info("Npcs: " + def.Name + " placed at " + pos.ToString("F1") + ".");
