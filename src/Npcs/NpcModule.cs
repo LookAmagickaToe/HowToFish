@@ -40,6 +40,8 @@ namespace Expanded.Npcs
             public NpcDef Def;
             public GameObject Go;
             public Transform Bubble;
+            public float Height = 1.6f;
+            public float TalkingUntil;
             public NpcVoice Voice;
             public Marker Marker;
             public float ResumeIdleAt = -1f;
@@ -54,6 +56,7 @@ namespace Expanded.Npcs
 
         private ConfigEntry<float> _talkRange;
         private ConfigEntry<float> _feedRadius;
+        private static float _textSeconds = 10f;
 
         // Client state (every machine, host included).
         private readonly Dictionary<string, Marker> _present = new Dictionary<string, Marker>(StringComparer.Ordinal);
@@ -82,6 +85,11 @@ namespace Expanded.Npcs
                 "How far a conversation carries; walk further than about twice this and it ends.");
             _feedRadius = config.Bind(Id, "FeedRadius", 1.2f,
                 "How close to a character an item must land for them to eat it.");
+
+            ConfigEntry<float> textSeconds = config.Bind(Id, "TextSeconds", 10f,
+                "How long a line stays in the speech bubble (the game's own NPCs use 5).");
+            _textSeconds = Mathf.Max(1f, textSeconds.Value);
+            textSeconds.SettingChanged += (s, e) => _textSeconds = Mathf.Max(1f, textSeconds.Value);
 
             ConfigEntry<float> voice = config.Bind(Id, "VoiceVolume", 1f,
                 "Volume of the characters' mumbling, relative to the game's own NPCs (0 = silent).");
@@ -451,7 +459,7 @@ namespace Expanded.Npcs
             foreach (Instance inst in _self._spawned.Values)
             {
                 if (inst.Def.Slot != slot || inst.Go == null) continue;
-                mouth = NpcBody.MouthOf(inst.Go);
+                mouth = NpcBody.MouthOf(inst.Go, inst.Height);
                 return true;
             }
             return false;
@@ -574,10 +582,11 @@ namespace Expanded.Npcs
             if (go == null) return;
             go.name = "Npc:" + def.Id;
 
+            float height = NpcBody.HeightOf(go);
             StoryNpcInteractable talk;
-            Transform bubble = NpcBody.AddTalkPoint(go, def.Id, out talk);
+            Transform bubble = NpcBody.AddTalkPoint(go, def.Id, height, out talk);
 
-            var inst = new Instance { Def = def, Go = go, Bubble = bubble, Marker = marker, Voice = NpcVoice.Attach(go) };
+            var inst = new Instance { Def = def, Go = go, Bubble = bubble, Height = height, Marker = marker, Voice = NpcVoice.Attach(go) };
             _spawned[def.Id] = inst;
             Animate(inst, "Idle", true);
             Diag.Info("Npcs: " + def.Name + " placed at " + pos.ToString("F1") + (talk != null ? "" : " (cannot be talked to)") + ".");
@@ -673,18 +682,19 @@ namespace Expanded.Npcs
             if (inst?.Go == null || string.IsNullOrEmpty(text)) return;
             try
             {
-                PlayerUI.SetNpcText(text, inst.Bubble != null ? inst.Bubble : inst.Go.transform);
+                NpcBody.ShowBubble(text, inst.Bubble != null ? inst.Bubble : inst.Go.transform, _textSeconds);
             }
             catch (Exception e)
             {
                 Diag.Exception("Npcs: speech bubble", e);
             }
+            inst.TalkingUntil = Time.time + _textSeconds;
             inst.Voice?.Speak(text);
         }
 
         private static void PlayEatEffects(Instance inst)
         {
-            Vector3 mouth = NpcBody.MouthOf(inst.Go);
+            Vector3 mouth = NpcBody.MouthOf(inst.Go, inst.Height);
             try { AudioManager.PlayClipAt("Swallow", mouth, true, AudioDistance.Short, 1f, 1f); } catch { }
             try { ParticleManager.Play("Spit", mouth, inst.Go.transform.forward); } catch { }
             Animate(inst, "Yes", false);
@@ -711,7 +721,12 @@ namespace Expanded.Npcs
             foreach (Instance inst in _spawned.Values)
             {
                 if (inst.Go == null || inst.Marker == Marker.None) continue;
-                Vector3 head = inst.Go.transform.position + Vector3.up * 2.4f;
+
+                // The "!" and the speech bubble share the space over the head: while they talk,
+                // or a conversation is still waiting to be clicked through, the marker steps aside.
+                if (Time.time < inst.TalkingUntil || inst.PendingIndex < inst.Pending.Count) continue;
+
+                Vector3 head = inst.Go.transform.position + Vector3.up * (inst.Height + 0.45f);
                 Vector3 sp = cam.WorldToScreenPoint(head);
                 if (sp.z <= 0f || sp.z > 60f) continue;
 

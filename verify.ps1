@@ -160,6 +160,9 @@ if ($module.GetType("NPCInteractable")) { Write-Host "  ok    type NPCInteractab
 else { Write-Host "  FAIL  type NPCInteractable missing" -ForegroundColor Red; $fail++ }
 Check-Method "NPCInteractable" "Interact"        @("Player")
 Check-Method "PlayerUI"        "SetNpcText"      @("String", "Transform")
+Check-Field  "PlayerUI"        "_instance"       $null
+Check-Field  "PlayerUI"        "_npcUI"          $null
+Check-Field  "NpcUI"           "_showNpcTextTime" $null
 Check-Method "Item"            "DestroyByNpc"    @("Byte")
 Check-Method "Item"            "DespawnItemOnServer" @()
 Check-Method "Item"            "DestroyItem"     @("Byte", "Byte")

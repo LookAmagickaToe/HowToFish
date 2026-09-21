@@ -42,16 +42,25 @@ namespace Expanded.Npcs
         private static readonly FieldInfo TextTargetField = AccessTools.Field(typeof(Interactable), "_textTarget");
         private static readonly FieldInfo Outline = AccessTools.Field(typeof(Interactable), "_modelsToOutline");
 
-        internal const float MouthHeight = 1.55f;
-
         /// <summary>Adds the talk point. Returns the speech-bubble anchor, or null if the game changed.</summary>
-        internal static Transform AddTalkPoint(GameObject character, string npcId, out StoryNpcInteractable talk)
+        /// <summary>How tall the character stands, from its meshes; the Quaternius figures are short and stocky.</summary>
+        internal static float HeightOf(GameObject character)
+        {
+            float top = float.MinValue;
+            foreach (Renderer r in character.GetComponentsInChildren<Renderer>(true))
+                if (r != null) top = Mathf.Max(top, r.bounds.max.y);
+            float h = top - character.transform.position.y;
+            return h > 0.5f && h < 4f ? h : 1.6f;
+        }
+
+        internal static Transform AddTalkPoint(GameObject character, string npcId, float height, out StoryNpcInteractable talk)
         {
             talk = null;
 
+            // Just above the head, like the game's own speech bubbles.
             var bubble = new GameObject("SpeechAnchor").transform;
             bubble.SetParent(character.transform, false);
-            bubble.localPosition = new Vector3(0f, 2.35f, 0f);
+            bubble.position = character.transform.position + Vector3.up * (height + 0.3f);
 
             if (InteractCol == null || TextTargetField == null || Outline == null)
             {
@@ -66,13 +75,13 @@ namespace Expanded.Npcs
                 var point = new GameObject("TalkPoint");
                 point.SetActive(false);
                 point.transform.SetParent(character.transform, false);
-                point.transform.localPosition = new Vector3(0f, 1.1f, 0f);
+                point.transform.position = character.transform.position + Vector3.up * (height * 0.55f);
                 point.layer = LayerMask.NameToLayer("Interactable");
                 point.tag = "Interactable";
 
                 CapsuleCollider col = point.AddComponent<CapsuleCollider>();
                 col.radius = 0.4f;
-                col.height = 2.0f;
+                col.height = Mathf.Max(1f, height);
                 col.center = Vector3.zero;
 
                 talk = point.AddComponent<StoryNpcInteractable>();
@@ -98,8 +107,48 @@ namespace Expanded.Npcs
             return list.ToArray();
         }
 
-        internal static Vector3 MouthOf(GameObject character) =>
-            character.transform.position + Vector3.up * MouthHeight + character.transform.forward * 0.15f;
+        internal static Vector3 MouthOf(GameObject character, float height) =>
+            character.transform.position + Vector3.up * (height * 0.8f) + character.transform.forward * 0.15f;
+
+        // The game hides its speech bubble after a fixed time read from NpcUI when a line is shown.
+        // Story lines are longer than the game's, so they get more time: the value is raised just
+        // for our call and put back straight after, leaving vanilla NPCs untouched.
+        private static readonly FieldInfo PlayerUIInstance = AccessTools.Field(typeof(PlayerUI), "_instance");
+        private static readonly FieldInfo PlayerUINpcUI = AccessTools.Field(typeof(PlayerUI), "_npcUI");
+        private static readonly FieldInfo NpcUIShowTime = AccessTools.Field(typeof(NpcUI), "_showNpcTextTime");
+
+        /// <summary>Shows a line in the game's speech bubble for the given number of seconds.</summary>
+        internal static void ShowBubble(string text, Transform target, float seconds)
+        {
+            object npcUI = null;
+            object before = null;
+            try
+            {
+                object ui = PlayerUIInstance?.GetValue(null);
+                npcUI = ui != null ? PlayerUINpcUI?.GetValue(ui) : null;
+                if (npcUI != null && NpcUIShowTime != null && seconds > 0f)
+                {
+                    before = NpcUIShowTime.GetValue(npcUI);
+                    NpcUIShowTime.SetValue(npcUI, seconds);
+                }
+            }
+            catch (Exception e)
+            {
+                Diag.Debug("NpcBody: could not lengthen the speech bubble (" + e.Message + ").");
+            }
+
+            try
+            {
+                PlayerUI.SetNpcText(text, target);
+            }
+            finally
+            {
+                if (npcUI != null && before != null)
+                {
+                    try { NpcUIShowTime.SetValue(npcUI, before); } catch { }
+                }
+            }
+        }
     }
 
     /// <summary>
