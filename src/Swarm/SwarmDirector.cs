@@ -97,6 +97,9 @@ namespace SeagullSwarm
             }
             _provokeKills.Add(Time.time);
 
+            float delay = SwarmModule.Cfg.LureReplaceSeconds.Value;
+            if (delay > 0f) _replaceAt.Add(Time.time + delay);
+
             Say("Seagull killed (" + _provokeKills.Count + "/" +
                 SwarmModule.Cfg.KillsToProvoke.Value + ")");
         }
@@ -150,6 +153,7 @@ namespace SeagullSwarm
             HandleTestControls();
             TickFleeing();
             TickLure();
+            TickReplacements();
 
             switch (_phase)
             {
@@ -811,10 +815,20 @@ namespace SeagullSwarm
             int n = Mathf.Min(4, Mathf.Max(0, cfg.LureMaxGulls.Value) - nearby);
             if (n <= 0) return;
 
+            int ok = SpawnLureGulls(n);
+            if (ok > 0) Diag.Info("Lure: " + ok + " gull(s) flew in (" + (nearby + ok) + " nearby" +
+                                  (strays.Count > 0 ? ", " + strays.Count + " stray(s) cleared" : "") + ").");
+        }
+
+        /// <summary>Ordinary gulls fly in together from one direction, out at sea, within gun range.</summary>
+        private int SpawnLureGulls(int n)
+        {
+            if (_gullPrefab == null && !ResolvePrefabs()) return 0;
+            if (_anchor == Vector3.zero) return 0;
+
             float water = 0f;
             try { water = WaterManager.WaterHeight; } catch { }
 
-            // Arrive together from one direction, out at sea, not too far to reach with a gun.
             float bearing = Random.Range(0f, 360f);
             int ok = 0;
             for (int k = 0; k < n; k++)
@@ -835,8 +849,30 @@ namespace SeagullSwarm
                     break;
                 }
             }
-            if (ok > 0) Diag.Info("Lure: " + ok + " gull(s) flew in (" + (nearby + ok) + " nearby" +
-                                  (strays.Count > 0 ? ", " + strays.Count + " stray(s) cleared" : "") + ").");
+            return ok;
+        }
+
+        // ------------------------------------------------------------------ replacement after a kill
+
+        private readonly List<float> _replaceAt = new List<float>();
+
+        /// <summary>
+        /// Calling the swarm takes 5 kills inside 3 minutes. Wild gulls alone can run dry, so every gull
+        /// shot down (outside an encounter) is replaced by a fresh one shortly after. With the default
+        /// 15 s the next target is always there well inside the 36 s per kill the window allows.
+        /// </summary>
+        private void TickReplacements()
+        {
+            if (_replaceAt.Count == 0) return;
+            if (_phase != Phase.Idle) { _replaceAt.Clear(); return; }
+
+            int due = 0;
+            for (int i = _replaceAt.Count - 1; i >= 0; i--)
+                if (Time.time >= _replaceAt[i]) { _replaceAt.RemoveAt(i); due++; }
+            if (due == 0) return;
+
+            int ok = SpawnLureGulls(due);
+            if (ok > 0) Diag.Info("Lure: " + ok + " replacement gull(s) flew in after a kill.");
         }
 
         private static bool QuestWantsGulls()

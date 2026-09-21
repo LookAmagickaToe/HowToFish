@@ -20,6 +20,7 @@ namespace SeagullSwarm
         public readonly ConfigEntry<int> LureMaxGulls;
         public readonly ConfigEntry<float> LureIntervalSeconds;
         public readonly ConfigEntry<float> LureRadius;
+        public readonly ConfigEntry<float> LureReplaceSeconds;
 
         // --- Waves ---------------------------------------------------------
         public readonly ConfigEntry<int> WaveCount;
@@ -109,6 +110,9 @@ namespace SeagullSwarm
             LureIntervalSeconds = c.Bind("Lure", "EverySeconds", 10f,
                 "How often more gulls fly in (up to 4 at a time). At the defaults far more than the 5 kills the " +
                 "swarm needs turn up within its 3-minute window.");
+            LureReplaceSeconds = c.Bind("Lure", "ReplaceAfterKillSeconds", 15f,
+                "Every gull shot down outside an encounter is replaced by a fresh one after this many seconds, " +
+                "so the 5 kills in 3 minutes that call the swarm are always possible. 0 = off.");
             LureRadius = c.Bind("Lure", "NearbyRadius", 70f,
                 "Only gulls this close count as 'around'; ones that wander further off are cleared away and replaced.");
 
