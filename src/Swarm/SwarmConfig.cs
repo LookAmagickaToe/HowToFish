@@ -128,7 +128,7 @@ namespace SeagullSwarm
                 "Per-wave multiplier. 15 x 1.3^(n-1) gives 15 / 20 / 25 / 33 / 43 = 136 birds.");
             WaveTimeBaseSeconds = c.Bind("Waves", "WaveTimeBaseSeconds", 60f,
                 "Each wave must be cleared in time: this many seconds...");
-            WaveTimePerBirdSeconds = c.Bind("Waves", "WaveTimePerBirdSeconds", 6f,
+            WaveTimePerBirdSeconds = c.Bind("Waves", "WaveSecondsPerGull", 7f,
                 "...plus this many per bird in the wave. When it runs out the flock leaves and the swarm is lost.");
             WaveBreakSeconds = c.Bind("Waves", "BreakSeconds", 6f, "Breather between waves.");
 
