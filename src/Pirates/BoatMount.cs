@@ -31,6 +31,7 @@ namespace Expanded.Pirates
         }
 
         private static Layout _layout;
+        private static float _nextBadWarn;
 
         internal static void Invalidate() => _layout = null;
 
@@ -155,6 +156,22 @@ namespace Expanded.Pirates
             if (!any)
             {
                 Diag.Warn("BoatMount: boat has nothing to measure.");
+                return null;
+            }
+
+            // On a client that has just joined, the boat's collider holder can still be where the boat
+            // was spawned while the drawn boat is already at the island - measuring then puts the whole
+            // "boat" hundreds of metres away (guns and the tow rope with it). A real hull sits on its
+            // own origin and is a few metres long; anything else is a bad moment. Try again shortly.
+            Vector3 flatCentre = new Vector3(local.center.x, 0f, local.center.z);
+            if (flatCentre.magnitude > Mathf.Max(6f, Mathf.Max(local.extents.x, local.extents.z)) || local.size.magnitude > 40f)
+            {
+                if (Time.time >= _nextBadWarn)
+                {
+                    _nextBadWarn = Time.time + 10f;
+                    Diag.Warn("BoatMount: measurement is off (centre " + local.center.ToString("F1") + ", size " +
+                              local.size.ToString("F1") + ") - the boat's colliders haven't caught up yet; retrying.");
+                }
                 return null;
             }
 

@@ -44,7 +44,9 @@ namespace Expanded.Megalodon
                 if (Boat == null) return Vector3.zero;
                 Vector3 v = Boat.Velocity;
                 v.y = 0f;
-                return v;
+                // A client's boat velocity is worked out from how its picture moves; when that jumps
+                // (joining, a locked boat being placed) it reads absurdly high for a frame.
+                return v.sqrMagnitude > 40f * 40f ? Vector3.zero : v;
             }
             catch { return Vector3.zero; }
         }
@@ -157,7 +159,8 @@ namespace Expanded.Megalodon
         private static void HostAttach(Player p)
         {
             if (!InstanceFinder.IsServerStarted) return;
-            if (!Owned || RiderId >= 0 || p.Dying.IsDead || Tow.Boat == null) return;
+            if (!Owned || RiderId >= 0 || p.Dying.IsDead || Tow.Boat == null || !Unlocked(Tow.Boat)) return;
+            if (new Vector2(p.Transform.position.x - Tow.Centre().x, p.Transform.position.z - Tow.Centre().z).magnitude > 12f) return;
             try { if (Tow.Boat.Driver == p) return; } catch { }
 
             RiderId = p.OwnerId;
@@ -202,6 +205,12 @@ namespace Expanded.Megalodon
             if (Tow.Boat == null) { HostClear("no boat"); return; }
         }
 
+        /// <summary>No tow rope on a boat the crew hasn't got yet.</summary>
+        private static bool Unlocked(Boat b)
+        {
+            try { return b.BoatUnlocked; } catch { return true; }
+        }
+
         internal static void Reset()
         {
             RiderId = -1;
@@ -229,7 +238,7 @@ namespace Expanded.Megalodon
         private static void TickRack()
         {
             Boat boat = Tow.Boat;
-            bool want = boat != null && Owned && RiderId < 0;
+            bool want = boat != null && Owned && RiderId < 0 && Unlocked(boat);
             if (!want)
             {
                 if (_rack != null) { UnityEngine.Object.Destroy(_rack.gameObject); _rack = null; }

@@ -56,6 +56,13 @@ namespace Expanded.Megalodon
             Player me = Player.LocalPlayer;
             Vector3 tow;
             if (me == null || Riding || !Tow.Point(out tow)) return;
+            // The tow point must be where the player actually is (they just grabbed the board by the helm).
+            if (new Vector2(tow.x - me.Transform.position.x, tow.z - me.Transform.position.z).magnitude > 20f)
+            {
+                Diag.Warn("Wakeboard: the tow point is " + Vector3.Distance(tow, me.Transform.position).ToString("0") +
+                          " m away - the boat isn't measured right yet; not riding.");
+                return;
+            }
 
             try { if (Expanded.Pirates.DeckCannon.Manning) Expanded.Pirates.DeckCannon.Dismount("grabbed the tow rope"); } catch { }
 
@@ -96,7 +103,7 @@ namespace Expanded.Megalodon
             Riding = false;
             Wrapping = false;
             _rodeoUntil = -1f;
-            Vector3 fling = _v * 0.4f + Vector3.up * (_air ? Mathf.Max(0f, _vy) : 1.5f);
+            Vector3 fling = Vector3.ClampMagnitude(_v * 0.4f, 6f) + Vector3.up * Mathf.Clamp(_air ? _vy : 1.5f, 0f, 8f);
             PlayerHold.End(fling, why);
             try { Player.LocalPlayer?.Camera?.SetMoveValues(0f, 0f, 0f); } catch { }
             if (tellHost) ModNet.SendToServer(Msg.WakeRequest, w => { w.Write(false); w.Write(why ?? ""); });
@@ -215,6 +222,14 @@ namespace Expanded.Megalodon
                 }
             }
             _p.y = 0f;
+            _v = Vector3.ClampMagnitude(_v, 35f);
+
+            // The boat jumped far away (teleported home, re-measured): let go rather than follow it.
+            if (new Vector2(_p.x - tow.x, _p.z - tow.z).magnitude > Mathf.Max(40f, rope * 3f))
+            {
+                End("the boat is suddenly somewhere else", true);
+                return PlayerHold.Pose;
+            }
 
             // Planing or sinking.
             float speed = _v.magnitude;

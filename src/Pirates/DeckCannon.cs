@@ -36,6 +36,7 @@ namespace Expanded.Pirates
         private static readonly List<Gun> Guns = new List<Gun>();
         private static Transform _mountRoot;
         private static Boat _mountedOn;
+        private static float _nextRetry;
 
         /// <summary>The gun the local player is manning, or -1.</summary>
         private static int _manned = -1;
@@ -74,7 +75,9 @@ namespace Expanded.Pirates
             Boat boat = BoatManager.Boat;
             List<BoatMount.Slot> wanted = boat != null ? ArmedSlots(fightActive) : new List<BoatMount.Slot>();
 
-            if (boat != _mountedOn || !SameSlots(wanted)) Rebuild(boat, wanted);
+            bool unplaced = Guns.Exists(g => g.Model == null) && Time.time >= _nextRetry;
+            if (unplaced) _nextRetry = Time.time + 2f;
+            if (boat != _mountedOn || !SameSlots(wanted) || unplaced) Rebuild(boat, wanted);
             if (Guns.Count == 0) { if (Manning) Dismount("no gun"); return; }
 
             TickManning();
