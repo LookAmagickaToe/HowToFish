@@ -134,6 +134,7 @@ namespace Expanded.Pirates
                 root.tag = "Interactable";   // the game's look-at only considers colliders with this tag
 
                 GameObject model = ModAssets.Create("cannon", pos, anchor.transform.rotation, root.transform, solid: false);
+                if (model != null) model.transform.localScale *= PirateModule.Cfg.DeckCannonScale.Value;
                 Bounds b = model != null ? ModAssets.Measure(model) : new Bounds(pos + Vector3.up * 0.4f, new Vector3(0.8f, 0.8f, 1.2f));
 
                 // The collider the game's look-at raycast hits: a box around the model.
@@ -175,27 +176,70 @@ namespace Expanded.Pirates
         /// </summary>
         private static bool FindSpot(Transform anchor, out Vector3 pos)
         {
-            Vector3[] offsets =
+            pos = anchor.position;
+
+            // The motors on display: every motor stand in the shop, measured by what you actually see
+            // (the models the game outlines), not by the objects' pivots.
+            bool any = false;
+            Bounds row = default(Bounds);
+            int stands = 0;
+            foreach (MotorPurchasable m in UnityEngine.Object.FindObjectsByType<MotorPurchasable>())
             {
-                anchor.right * 1.4f, -anchor.right * 1.4f, anchor.forward * 1.3f,
-                anchor.right * 2.4f, -anchor.right * 2.4f, -anchor.forward * 1.3f
+                if (m == null || !m.isActiveAndEnabled || (m.transform.position - anchor.position).sqrMagnitude > 15f * 15f) continue;
+                stands++;
+                foreach (Renderer r in DisplayRenderers(m))
+                {
+                    if (!any) { row = r.bounds; any = true; }
+                    else row.Encapsulate(r.bounds);
+                }
+            }
+            if (!any) row = new Bounds(anchor.position, Vector3.one * 0.6f);
+
+            // Line up at either end of the row, on whatever the motors stand on. Searching from just
+            // above the motors' base - never from high up - keeps it off roofs and shelves above.
+            Vector3 along = row.size.x >= row.size.z ? Vector3.right : Vector3.forward;
+            float half = row.size.x >= row.size.z ? row.extents.x : row.extents.z;
+            float baseY = row.min.y;
+            Vector3[] candidates =
+            {
+                row.center + along * (half + 0.9f), row.center - along * (half + 0.9f),
+                row.center + along * (half + 1.6f), row.center - along * (half + 1.6f),
+                anchor.position + anchor.forward * 1.2f, anchor.position - anchor.forward * 1.2f
             };
 
-            foreach (Vector3 off in offsets)
+            foreach (Vector3 c in candidates)
             {
-                Vector3 probe = anchor.position + off + Vector3.up * 1.5f;
+                Vector3 probe = new Vector3(c.x, baseY + 0.4f, c.z);
                 RaycastHit hit;
-                if (!Physics.Raycast(probe, Vector3.down, out hit, 4f, ~0, QueryTriggerInteraction.Ignore)) continue;
+                if (!Physics.Raycast(probe, Vector3.down, out hit, 2.5f, ~0, QueryTriggerInteraction.Ignore)) continue;
                 if (Vector3.Dot(hit.normal, Vector3.up) < 0.8f) continue;
 
                 Vector3 spot = hit.point;
-                if (Physics.CheckSphere(spot + Vector3.up * 0.55f, 0.35f, ~0, QueryTriggerInteraction.Ignore)) continue;
+                if (Physics.CheckSphere(spot + Vector3.up * 0.5f, 0.3f, ~0, QueryTriggerInteraction.Ignore)) continue;
 
                 pos = spot;
+                Diag.Info("ShopCannon: " + stands + " motor stand(s), display row " + row.center.ToString("F1") + " size " +
+                          row.size.ToString("F1") + "; gun set on '" + hit.collider.name + "' at " + spot.ToString("F1") + ".");
                 return true;
             }
-            pos = anchor.position;
+
+            Diag.Warn("ShopCannon: no clear floor beside the motor row at " + row.center.ToString("F1") +
+                      " (base y " + baseY.ToString("F1") + ").");
             return false;
+        }
+
+        private static IEnumerable<Renderer> DisplayRenderers(MotorPurchasable m)
+        {
+            var list = new List<Renderer>();
+            if (Outline?.GetValue(m) is GameObject[] models)
+                foreach (GameObject g in models)
+                    if (g != null)
+                        foreach (Renderer r in g.GetComponentsInChildren<Renderer>(false))
+                            if (r != null && r.enabled) list.Add(r);
+            if (list.Count == 0)
+                foreach (Renderer r in m.GetComponentsInChildren<Renderer>(false))
+                    if (r != null && r.enabled) list.Add(r);
+            return list;
         }
 
         internal static void Clear()

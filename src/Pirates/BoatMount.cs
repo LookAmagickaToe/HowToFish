@@ -59,11 +59,11 @@ namespace Expanded.Pirates
             switch (slot)
             {
                 case Slot.Bow:
-                    z = b.center.z + l.BowSign * Mathf.Max(0.5f, b.extents.z - 1.3f);
+                    z = b.center.z + l.BowSign * Mathf.Max(0.3f, Mathf.Min(b.extents.z - 1.3f, b.extents.z * 0.72f));
                     localForward = new Vector3(0f, 0f, l.BowSign);
                     break;
                 case Slot.Stern:
-                    z = b.center.z - l.BowSign * Mathf.Max(0.5f, b.extents.z - 1.6f);
+                    z = b.center.z - l.BowSign * Mathf.Max(0.3f, Mathf.Min(b.extents.z - 1.6f, b.extents.z * 0.65f));
                     localForward = new Vector3(0f, 0f, -l.BowSign);
                     break;
                 default:
@@ -98,32 +98,39 @@ namespace Expanded.Pirates
             Transform root = Frame(boat);
             bool any = false;
             Bounds local = default(Bounds);
+            string source;
 
             // With the pirate hull fitted, the old boat's meshes are hidden and the pirate hull is
             // what guns should sit on, so measure that instead.
             GameObject pirate = PirateHull.VisualRoot;
-            IEnumerable<Renderer> source = pirate != null
-                ? pirate.GetComponentsInChildren<Renderer>(true)
-                : boat.GetComponentsInChildren<Renderer>(true);
-
-            foreach (Renderer r in source)
+            if (pirate != null)
             {
-                if (r == null) continue;
-                if (pirate == null && IsOurs(r.transform)) continue;
-                if (r is ParticleSystemRenderer) continue;
-
-                Bounds wb = r.bounds;
-                foreach (Vector3 corner in Corners(wb))
+                any = EncapsulateRenderers(pirate.GetComponentsInChildren<Renderer>(true), root, false, ref local);
+                source = "pirate hull";
+            }
+            else
+            {
+                // The old boat's renderers include things far bigger than the hull (it measured
+                // 10 x 10 m for a small dinghy, which put the bow gun beside the boat). The deck the
+                // game lets players walk on is the hull itself, so measure that.
+                any = EncapsulateColliders(DeckColliders(boat), root, ref local);
+                source = "deck colliders";
+                if (!any || local.size.x > 6f || local.size.z > 9f)
                 {
-                    Vector3 p = root.InverseTransformPoint(corner);
-                    if (!any) { local = new Bounds(p, Vector3.zero); any = true; }
-                    else local.Encapsulate(p);
+                    Bounds fromRenderers = default(Bounds);
+                    if (EncapsulateRenderers(boat.GetComponentsInChildren<Renderer>(true), root, true, ref fromRenderers) &&
+                        (!any || fromRenderers.size.sqrMagnitude < local.size.sqrMagnitude))
+                    {
+                        local = fromRenderers;
+                        any = true;
+                        source = "renderers";
+                    }
                 }
             }
 
             if (!any)
             {
-                Diag.Warn("BoatMount: boat has no renderers to measure.");
+                Diag.Warn("BoatMount: boat has nothing to measure.");
                 return null;
             }
 
@@ -140,9 +147,58 @@ namespace Expanded.Pirates
             }
 
             _layout = new Layout { Boat = boat, Local = local, BowSign = bowSign };
-            Diag.Info("BoatMount: boat measures " + local.size.ToString("F1") + " (local), bow towards " +
+            Diag.Info("BoatMount: boat measures " + local.size.ToString("F1") + " (local, from " + source +
+                      "), centre " + local.center.ToString("F1") + ", bow towards " +
                       (bowSign > 0 ? "+Z" : "-Z") + (motor != null ? " (from motor)" : "") + ".");
             return _layout;
+        }
+
+        private static readonly System.Reflection.FieldInfo FDynCols =
+            HarmonyLib.AccessTools.Field(typeof(Boat), "_dynamicObjectCols");
+
+        /// <summary>The colliders players stand on in the boat - the hull's real footprint.</summary>
+        private static IEnumerable<Collider> DeckColliders(Boat boat)
+        {
+            var list = new List<Collider>();
+            try
+            {
+                if (FDynCols?.GetValue(boat) is Collider[] cols)
+                    foreach (Collider c in cols)
+                        if (c != null && c.enabled && !c.isTrigger && !IsOurs(c.transform)) list.Add(c);
+            }
+            catch (Exception e)
+            {
+                Diag.Debug("BoatMount: deck colliders unavailable (" + e.Message + ").");
+            }
+            return list;
+        }
+
+        private static bool EncapsulateColliders(IEnumerable<Collider> cols, Transform root, ref Bounds local)
+        {
+            bool any = false;
+            foreach (Collider c in cols)
+                foreach (Vector3 corner in Corners(c.bounds))
+                    Add(root.InverseTransformPoint(corner), ref local, ref any);
+            return any;
+        }
+
+        private static bool EncapsulateRenderers(IEnumerable<Renderer> rs, Transform root, bool skipOurs, ref Bounds local)
+        {
+            bool any = false;
+            foreach (Renderer r in rs)
+            {
+                if (r == null || r is ParticleSystemRenderer || !r.enabled) continue;
+                if (skipOurs && IsOurs(r.transform)) continue;
+                foreach (Vector3 corner in Corners(r.bounds))
+                    Add(root.InverseTransformPoint(corner), ref local, ref any);
+            }
+            return any;
+        }
+
+        private static void Add(Vector3 p, ref Bounds b, ref bool any)
+        {
+            if (!any) { b = new Bounds(p, Vector3.zero); any = true; }
+            else b.Encapsulate(p);
         }
 
         /// <summary>

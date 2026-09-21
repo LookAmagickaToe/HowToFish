@@ -155,7 +155,9 @@ namespace Expanded.Pirates
             DeckCannonSpeed = c.Bind(P, "MuzzleVelocity", 45f, "Muzzle velocity in m/s.");
             DeckCannonMaxElevation = c.Bind(P, "MaxElevationDegrees", 35f,
                 "Highest you can aim. The lowest is fixed at -10 so you cannot shoot your own deck.");
-            DeckCannonScale = c.Bind(P, "ModelScale", 1f, "Size of the deck cannon model.");
+            DeckCannonScale = c.Bind(P, "ModelScale", 0.55f,
+                "Size of the swivel gun on your boat and in the shop. The model is built for a 13 m pirate ship; " +
+                "0.55 suits the small boat.");
             CannonPrice = c.Bind(P, "Price", 750, "What the swivel gun costs in the shop.");
 
             AtSeaDistance = c.Bind(T, "AtSeaDistance", 70f,
