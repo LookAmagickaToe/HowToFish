@@ -25,7 +25,7 @@ namespace Expanded
     internal static class ModNet
     {
         /// <summary>Bumped when the wire format changes incompatibly; mismatched peers are warned.</summary>
-        internal const int Protocol = 1;
+        internal const int Protocol = 2;   // 2: UnlockChanged carries granted/revoked
 
         internal struct ModPacket : IBroadcast
         {
@@ -301,6 +301,8 @@ namespace Expanded
         internal const byte ShipStatus = 8;      // pirate ship health/state for the health bar
         internal const byte UnlockSnapshot = 9;  // every unlock the host knows, for late joiners
         internal const byte NpcSet = 10;         // which story NPCs are present, with quest markers
+        internal const byte CrewDied = 11;       // a pirate crew member was killed
+        internal const byte SiteMarker = 12;     // where the chart's mark is (or that it is gone)
 
         // clients -> host
         internal const byte RequestAccept = 20;  // accept an offered quest
@@ -310,5 +312,6 @@ namespace Expanded
         internal const byte ShipHit = 24;        // my bullet hit the pirate ship
         internal const byte RequestFire = 25;    // fire the deck cannon I am standing at
         internal const byte Hello = 26;          // I just joined: send me the current state
+        internal const byte CrewHit = 27;        // my bullet hit a pirate crew member
     }
 }

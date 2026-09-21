@@ -38,12 +38,14 @@ namespace Expanded.Pirates
         /// <summary>True while the local player stands within reach of a mounted gun.</summary>
         internal static bool PlayerAtGun => _nearIndex >= 0;
 
-        /// <summary>Which slots are armed right now, in index order. Identical on host and clients.</summary>
+        /// <summary>
+        /// Which slots are armed right now, in index order. Identical on host and clients, because it
+        /// only depends on replicated unlocks. The bow gun is bought in the shop, like a motor.
+        /// </summary>
         private static List<BoatMount.Slot> ArmedSlots(bool fightActive)
         {
             var slots = new List<BoatMount.Slot>(2);
-            bool owned = SharedState.Has(PirateStory.UnlockCannon);
-            if (fightActive || owned) slots.Add(BoatMount.Slot.Bow);
+            if (SharedState.Has(PirateStory.UnlockCannon)) slots.Add(BoatMount.Slot.Bow);
             if (SharedState.Has(PirateStory.UnlockPirateShip)) slots.Add(BoatMount.Slot.Stern);
             return slots;
         }
@@ -77,7 +79,7 @@ namespace Expanded.Pirates
 
             BoatMount.Invalidate();
             _mountRoot = new GameObject(BoatMount.MountRoot + "Cannons").transform;
-            _mountRoot.SetParent(boat.transform, false);
+            _mountRoot.SetParent(BoatMount.Frame(boat), false);
 
             foreach (BoatMount.Slot slot in slots)
             {
@@ -96,6 +98,12 @@ namespace Expanded.Pirates
                 Guns.Add(gun);
             }
             Diag.Info("DeckCannon: " + Guns.Count + " gun(s) mounted (" + string.Join(", ", slots) + ").");
+        }
+
+        /// <summary>The boat's shape changed (pirate hull fitted or removed): re-mount on the next tick.</summary>
+        internal static void ForceRebuild()
+        {
+            Clear();
         }
 
         internal static void Clear()

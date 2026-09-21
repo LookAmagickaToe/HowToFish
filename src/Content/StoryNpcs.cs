@@ -64,9 +64,10 @@ namespace Expanded.Content
                 Id = "mako", Name = Mako, Model = "characters_mako", Slot = 2,
                 AppearsAfter = PirateStory.FlagPiratesBeaten
             }
-            .Bark(PirateStory.FlagPiratesBeaten, "Pulled their mainmast out of the water and put it on your boat. You're welcome.")
-            .Bark(PirateStory.FlagPiratesBeaten, "The stern gun kicks. Brace your knees, not your back.")
-            .Bark(PirateStory.FlagPiratesBeaten, "Cannons work on fish too. Nobody told you that. Now somebody has."),
+            .Bark(PirateStory.FlagPiratesBeaten, "Rigged the Widow's hull over your old boat. Same motor underneath. Don't tell anyone.")
+            .Bark(PirateStory.FlagPiratesBeaten, "She's got a stern gun as well as the bow. Brace your knees, not your back.")
+            .Bark(PirateStory.FlagPiratesBeaten, "Cannons work on fish too. Nobody told you that. Now somebody has.")
+            .Bark(PirateStory.FlagPiratesBeaten, "Miss your old tub? Say the word and I'll swap the hulls back."),
         };
 
         public static NpcDef ById(string id)

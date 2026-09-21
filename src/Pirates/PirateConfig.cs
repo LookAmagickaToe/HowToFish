@@ -28,6 +28,9 @@ namespace Expanded.Pirates
         public readonly ConfigEntry<float> RollDegrees;
         public readonly ConfigEntry<float> SinkSpeed;
         public readonly ConfigEntry<float> SinkSeconds;
+        public readonly ConfigEntry<float> SurrenderSeconds;
+        public readonly ConfigEntry<float> CrewHealth;
+        public readonly ConfigEntry<float> CaptainHealth;
 
         // --- enemy gunnery -----------------------------------------------------
         public readonly ConfigEntry<int> PortsPerSide;
@@ -57,10 +60,13 @@ namespace Expanded.Pirates
         public readonly ConfigEntry<float> DeckCannonSpeed;
         public readonly ConfigEntry<float> DeckCannonMaxElevation;
         public readonly ConfigEntry<float> DeckCannonScale;
+        public readonly ConfigEntry<int> CannonPrice;
 
         // --- triggers ----------------------------------------------------------
         public readonly ConfigEntry<float> AtSeaDistance;
-        public readonly ConfigEntry<float> StoryTriggerDelay;
+        public readonly ConfigEntry<float> SiteDistance;
+        public readonly ConfigEntry<float> SiteReachRadius;
+        public readonly ConfigEntry<float> SiteEngageRadius;
         public readonly ConfigEntry<int> RaidMoneyThreshold;
         public readonly ConfigEntry<float> RaidCooldownMinutes;
         public readonly ConfigEntry<float> RaidChancePerMinute;
@@ -102,6 +108,10 @@ namespace Expanded.Pirates
             RollDegrees = c.Bind(S, "RollDegrees", 4f, "How far she rolls with the swell.");
             SinkSpeed = c.Bind(S, "SinkSpeed", 0.9f, "How fast she goes down, m/s.");
             SinkSeconds = c.Bind(S, "SinkSeconds", 12f, "How long the sinking lasts before she is removed.");
+            SurrenderSeconds = c.Bind(S, "SurrenderSeconds", 10f,
+                "After the captain falls and she strikes her colours, how long she drifts before being towed off.");
+            CrewHealth = c.Bind(S, "CrewHealth", 50f, "Hit points of each crew member.");
+            CaptainHealth = c.Bind(S, "CaptainHealth", 120f, "Hit points of the captain. Kill him and she surrenders.");
 
             PortsPerSide = c.Bind(G, "PortsPerSide", 3, "Guns on each side.");
             // 0.85 puts the guns just inside the rail. (The earlier 0.5 was sized from a rotated
@@ -142,11 +152,16 @@ namespace Expanded.Pirates
             DeckCannonMaxElevation = c.Bind(P, "MaxElevationDegrees", 35f,
                 "Highest you can aim. The lowest is fixed at -10 so you cannot shoot your own deck.");
             DeckCannonScale = c.Bind(P, "ModelScale", 1f, "Size of the deck cannon model.");
+            CannonPrice = c.Bind(P, "Price", 750, "What the swivel gun costs in the shop.");
 
             AtSeaDistance = c.Bind(T, "AtSeaDistance", 70f,
                 "How far your boat must be from the island's mooring to count as at sea.");
-            StoryTriggerDelay = c.Bind(T, "StoryTriggerDelay", 25f,
-                "Seconds at sea during the pirate quest before they show up.");
+            SiteDistance = c.Bind(T, "ChartMarkDistance", 200f,
+                "How far from the island's mooring the chart's mark (the buoy) is placed.");
+            SiteReachRadius = c.Bind(T, "ChartMarkReachRadius", 35f,
+                "How close to the buoy counts as having arrived.");
+            SiteEngageRadius = c.Bind(T, "ChartMarkEngageRadius", 140f,
+                "During the fight step, coming this close to the mark brings the pirate ship in.");
             RaidMoneyThreshold = c.Bind(T, "RaidMoneyThreshold", 2500,
                 "After the story fight, crews with at least this much money can be raided. 0 = never.");
             RaidCooldownMinutes = c.Bind(T, "RaidCooldownMinutes", 20f, "Minimum time between raids.");

@@ -26,11 +26,11 @@ namespace Expanded
             ModNet.OnClient(Msg.UnlockChanged, r =>
             {
                 string key = r.ReadString();
-                if (Unlocks.Add(key))
-                {
-                    Diag.Info("Unlock received: " + key);
-                    RaiseChanged();
-                }
+                bool granted = r.ReadBoolean();
+                bool changed = granted ? Unlocks.Add(key) : Unlocks.Remove(key);
+                if (!changed) return;
+                Diag.Info("Unlock " + (granted ? "received" : "revoked") + ": " + key);
+                RaiseChanged();
             });
 
             ModNet.OnClient(Msg.UnlockSnapshot, r =>
@@ -58,7 +58,18 @@ namespace Expanded
         {
             if (!ModSave.AddUnlock(key)) return false;
             Unlocks.Add(key);
-            ModNet.SendToAll(Msg.UnlockChanged, w => w.Write(key));
+            ModNet.SendToAll(Msg.UnlockChanged, w => { w.Write(key); w.Write(true); });
+            RaiseChanged();
+            return true;
+        }
+
+        /// <summary>Host: take an unlock away again (used for switches, e.g. old boat / pirate hull).</summary>
+        internal static bool Revoke(string key)
+        {
+            if (string.IsNullOrEmpty(key) || !ModSave.Data.Unlocks.Remove(key)) return false;
+            ModSave.MarkDirty();
+            Unlocks.Remove(key);
+            ModNet.SendToAll(Msg.UnlockChanged, w => { w.Write(key); w.Write(false); });
             RaiseChanged();
             return true;
         }

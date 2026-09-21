@@ -294,6 +294,37 @@ namespace Expanded.Tests
             Eq(e.SetFlag("pirates.defeated").Count, 0, "setting the same flag twice does nothing");
         }
 
+        private static void PreSatisfiedFlagSteps()
+        {
+            Section("flag steps already satisfied");
+            var e = new QuestEngine();
+            var q = Simple("chain",
+                new QuestStep("buy a gun", Objective.Flag("gun.bought")),
+                new QuestStep("reach the mark", Objective.Flag("mark.reached")),
+                new QuestStep("sink her", Objective.Flag("ship.sunk")));
+            e.Register(q);
+            e.RefreshAvailability();
+
+            // Bought the gun before anyone asked.
+            e.SetFlag("gun.bought");
+            e.Accept("chain");
+            Eq(e.Progress("chain").StepIndex, 1, "first step skips itself on accept when its flag is already set");
+
+            // Reached the mark early too: advancing into that step must also skip it.
+            e.SetFlag("mark.reached");
+            Eq(e.Progress("chain").StepIndex, 2, "reaching a satisfied step on the way skips it as well");
+
+            e.SetFlag("ship.sunk");
+            Eq(e.Progress("chain").Status, QuestStatus.Completed, "final flag completes the quest");
+
+            // Non-flag steps must never be skipped by this rule.
+            var e2 = new QuestEngine();
+            e2.Register(Simple("kill", new QuestStep("kill one", Objective.Kill("cod", 1))));
+            e2.RefreshAvailability();
+            e2.Accept("kill");
+            Eq(e2.Progress("kill").Status, QuestStatus.Active, "kill step is not auto-completed");
+        }
+
         // ------------------------------------------------------------------ entry point
 
         internal static int Run()
@@ -307,6 +338,7 @@ namespace Expanded.Tests
             SaveRoundTrip();
             ForceCompleteWorks();
             FlagDrivenChaining();
+            PreSatisfiedFlagSteps();
 
             Console.WriteLine();
             if (_failed == 0)

@@ -140,7 +140,29 @@ namespace Expanded.Quests
                 QuestId = questId,
                 Text = _defs[questId].Steps[0].Text
             });
+
+            // The player may already have done what the first step asks (bought the cannon before
+            // being told to). A flag step that is already satisfied completes at once, otherwise the
+            // quest would wait forever for an event that has already happened.
+            SkipSatisfiedFlagSteps(questId, outcomes ?? new List<QuestOutcome>());
             return true;
+        }
+
+        /// <summary>Advances through consecutive Flag steps whose flag is already set.</summary>
+        private void SkipSatisfiedFlagSteps(string questId, List<QuestOutcome> outcomes)
+        {
+            QuestProgress p = _progress[questId];
+            QuestDef def = _defs[questId];
+
+            int guard = 0;
+            while (p.Status == QuestStatus.Active && guard++ < 64)
+            {
+                QuestStep step = def.StepAt(p.StepIndex);
+                if (step == null || step.Objective == null) return;
+                if (step.Objective.Kind != ObjectiveKind.Flag || !_flags.Contains(step.Objective.Key)) return;
+
+                Advance(questId, QuestEvent.Flagged(step.Objective.Key), outcomes);
+            }
         }
 
         /// <summary>
@@ -194,6 +216,12 @@ namespace Expanded.Quests
                     QuestId = questId,
                     Text = def.Steps[p.StepIndex].Text
                 });
+
+                // Same rule as on accept: a later flag step that is already satisfied completes now.
+                QuestStep next = def.Steps[p.StepIndex];
+                if (next.Objective != null && next.Objective.Kind == ObjectiveKind.Flag &&
+                    _flags.Contains(next.Objective.Key))
+                    Advance(questId, QuestEvent.Flagged(next.Objective.Key), outcomes);
                 return;
             }
 

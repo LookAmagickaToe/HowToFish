@@ -135,6 +135,31 @@ Check-Field  "SpawnManager"      "BoatSpawnPos"   "public"
 if ($module.GetType("BoatMotor")) { Write-Host "  ok    type BoatMotor (used to find the bow)" -ForegroundColor Green }
 else { Write-Host "  FAIL  type BoatMotor missing - bow detection falls back to +Z" -ForegroundColor Red; $fail++ }
 
+Write-Host "`n-- Shop cannon (subclasses the game's Purchasable) --"
+if ($module.GetType("MotorPurchasable")) { Write-Host "  ok    type MotorPurchasable (the shop anchor)" -ForegroundColor Green }
+else { Write-Host "  FAIL  type MotorPurchasable missing - no shop to sell the gun in" -ForegroundColor Red; $fail++ }
+Check-Field  "Interactable" "_interactCol"     $null
+Check-Field  "Interactable" "_textTarget"      $null
+Check-Field  "Interactable" "_modelsToOutline" $null
+Check-Field  "Purchasable"  "_customCost"      $null
+Check-Field  "Purchasable"  "_hoverString"     $null
+Check-Field  "Purchasable"  "_customCanBuy"    $null
+Check-Method "Purchasable"  "Hover"            @()
+Check-Method "Interactable" "Interact"         @("Player")
+Check-Method "SpriteManager" "GetPickUpInput"  @()
+Check-Method "MoneyManager" "CanAfford"        @("Int32")
+Check-Method "MoneyManager" "RemoveMoney"      @("Int32", "Player")
+
+Write-Host "`n-- Pirate hull (reaches into the game's boat) --"
+foreach ($f in @("_dynamicObjectColsHolder", "_itemColsHolder", "_dynamicObjectCols", "_steeringWheel", "_throttle", "_boatInteractable")) {
+    Check-Field "Boat" $f $null
+}
+Check-Method "Boat" "get_VisualBoat"   @()
+Check-Method "Boat" "get_DriverPos"    @()
+Check-Method "Boat" "get_BoatTrigger"  @()
+Check-Field  "BoatManager" "ColToBoat" "public"
+Check-Method "GameInfo" "get_NpcLayer" @()
+
 Write-Host "`n-- Harmony argument names (pirates) --"
 foreach ($spec in @(@("ExplosionManager","ServerExplode",@("item","info")), @("ProjectileManager","Hit",@("projectile","hit")))) {
     $mm = (Get-Type $spec[0]).Methods | Where-Object { $_.Name -eq $spec[1] } | Select-Object -First 1

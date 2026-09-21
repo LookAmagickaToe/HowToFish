@@ -15,9 +15,33 @@ namespace Expanded.Pirates
     /// </summary>
     internal sealed class PirateShip : MonoBehaviour
     {
-        internal enum Stance { Closing, Broadside, Withdrawing, Leaving, Sinking }
+        internal enum Stance { Closing, Broadside, Withdrawing, Leaving, Sinking, Surrendered }
 
+        /// <summary>Host only: the authoritative ship.</summary>
         internal static PirateShip Active { get; private set; }
+
+        /// <summary>Any machine: the ship as this client sees it, for local effects like crew deaths.</summary>
+        internal static PirateShip Current { get; private set; }
+
+        private void OnEnable() => Current = this;
+
+        private void OnDisable()
+        {
+            if (Current == this) Current = null;
+        }
+
+        /// <summary>Client-side: play a crew member's death (host decided it).</summary>
+        internal void ClientKillCrew(int index)
+        {
+            foreach (CrewMember c in GetComponentsInChildren<CrewMember>(true))
+                if (c.Index == index) { c.Die(); return; }
+        }
+
+        internal void ClientApplyDeadMask(byte mask)
+        {
+            foreach (CrewMember c in GetComponentsInChildren<CrewMember>(true))
+                if (c.Index < 8 && (mask & (1 << c.Index)) != 0) c.Die();
+        }
 
         private Stance _stance = Stance.Closing;
         private float _stanceTime;
@@ -38,10 +62,26 @@ namespace Expanded.Pirates
 
         private readonly List<Collider> _hull = new List<Collider>();
 
+        // Crew, host-side. Index matches PirateCrew.Posts on every machine.
+        private CrewMember[] _crew = new CrewMember[0];
+        private float[] _crewHp = new float[0];
+        private float _surrenderTime;
+
         internal Stance CurrentStance => _stance;
         internal float Health { get; private set; }
         internal float MaxHealth { get; private set; }
-        internal bool Alive => Health > 0f && _stance != Stance.Sinking;
+        internal bool Alive => Health > 0f && _stance != Stance.Sinking && _stance != Stance.Surrendered;
+
+        /// <summary>Bit i set = crew member i is dead. Sent in the status so late joiners see the bodies.</summary>
+        internal byte DeadMask
+        {
+            get
+            {
+                byte m = 0;
+                for (int i = 0; i < _crewHp.Length && i < 8; i++) if (_crewHp[i] <= 0f) m |= (byte)(1 << i);
+                return m;
+            }
+        }
 
         private static PirateConfig Cfg => PirateModule.Cfg;
 
@@ -55,6 +95,7 @@ namespace Expanded.Pirates
         private void OnDestroy()
         {
             if (Active == this) Active = null;
+            if (Current == this) Current = null;
         }
 
         internal void ServerInitialise(float maxHealth)
@@ -65,6 +106,75 @@ namespace Expanded.Pirates
             _nextVolley = Time.time + Cfg.FirstVolleyDelay.Value;
             Active = this;
             _statusDirty = true;
+
+            // Crew hit points, ordered by crew index.
+            CrewMember[] found = GetComponentsInChildren<CrewMember>(true);
+            _crew = new CrewMember[PirateCrew.Posts.Length];
+            _crewHp = new float[PirateCrew.Posts.Length];
+            foreach (CrewMember c in found)
+                if (c.Index >= 0 && c.Index < _crew.Length) _crew[c.Index] = c;
+            for (int i = 0; i < _crewHp.Length; i++)
+            {
+                bool present = _crew[i] != null;
+                _crewHp[i] = !present ? 0f
+                    : PirateCrew.Posts[i].Role == PirateCrew.Role.Captain ? Cfg.CaptainHealth.Value : Cfg.CrewHealth.Value;
+            }
+        }
+
+        // ------------------------------------------------------------------ crew
+
+        internal bool CrewAlive(int index) => index >= 0 && index < _crewHp.Length && _crewHp[index] > 0f;
+
+        /// <summary>
+        /// Host-side crew damage from a shooter's report or a nearby blast. A dead gunner silences
+        /// most of his broadside; a dead captain means the ship strikes her colours.
+        /// </summary>
+        internal void ServerDamageCrew(int index, float amount, string source)
+        {
+            if (!Alive || !CrewAlive(index) || amount <= 0f) return;
+
+            _crewHp[index] = Mathf.Max(0f, _crewHp[index] - amount);
+            if (_crewHp[index] > 0f) return;
+
+            PirateCrew.Post post = PirateCrew.Posts[index];
+            Diag.Info("Pirate crew " + index + " (" + post.Role + ") killed by " + source + ".");
+            _statusDirty = true;
+            ModNet.SendToAll(Msg.CrewDied, w => w.Write((byte)index));
+
+            switch (post.Role)
+            {
+                case PirateCrew.Role.Captain:
+                    Surrender();
+                    break;
+                case PirateCrew.Role.Gunner:
+                    PirateModule.Announce("Their " + (post.Side > 0 ? "starboard" : "port") + " gunner is down - that broadside is half silenced!");
+                    break;
+            }
+        }
+
+        /// <summary>The captain is dead: the crew strike their colours and the ship is yours.</summary>
+        private void Surrender()
+        {
+            if (_stance == Stance.Surrendered || _stance == Stance.Sinking) return;
+            SetStance(Stance.Surrendered);
+            _surrenderTime = 0f;
+            StopAllCoroutines();   // no more broadsides in flight
+            PirateModule.Instance?.OnShipDefeated(this, true);
+        }
+
+        private float CrewBlastDamage(Vector3 at, float radius, int baseDamage)
+        {
+            float hurt = 0f;
+            for (int i = 0; i < _crew.Length; i++)
+            {
+                if (!CrewAlive(i) || _crew[i] == null) continue;
+                float d = Vector3.Distance(at, _crew[i].transform.position + Vector3.up * 0.9f);
+                if (d > radius) continue;
+                float dmg = baseDamage * (1f - d / Mathf.Max(0.1f, radius));
+                ServerDamageCrew(i, dmg, "blast");
+                hurt += dmg;
+            }
+            return hurt;
         }
 
         // ------------------------------------------------------------------ damage
@@ -76,6 +186,10 @@ namespace Expanded.Pirates
         internal void ServerTakeExplosion(Vector3 at, float radius, int baseDamage)
         {
             if (!Alive) return;
+
+            // A ball bursting on deck cuts down whoever is standing near it.
+            CrewBlastDamage(at, Mathf.Max(0.5f, radius), baseDamage);
+            if (!Alive) return;   // that may have been the captain
 
             float dist = DistanceToHull(at);
             float reach = Mathf.Max(0.5f, radius) * Cfg.ExplosionReach.Value;
@@ -141,7 +255,8 @@ namespace Expanded.Pirates
             SetStance(Stance.Sinking);
             _sinkTime = 0f;
             _statusDirty = true;
-            PirateModule.Instance?.OnShipSunk(this);
+            StopAllCoroutines();
+            PirateModule.Instance?.OnShipDefeated(this, false);
         }
 
         // ------------------------------------------------------------------ loop
@@ -157,6 +272,7 @@ namespace Expanded.Pirates
                 if (dt <= 0f) return;
 
                 if (_stance == Stance.Sinking) { Sink(dt); }
+                else if (_stance == Stance.Surrendered) { Drift(dt); }
                 else
                 {
                     CheckFightTimeout();
@@ -375,9 +491,11 @@ namespace Expanded.Pirates
                 : null;
             if (ports == null || ports.Count == 0) yield break;
 
-            Diag.Debug("Pirate broadside, " + (side > 0 ? "starboard" : "port") + ", " + ports.Count + " guns.");
+            // With the gunner dead, the rest of the crew can only keep one gun on that side going.
+            int guns = SideGunnerAlive(side) ? ports.Count : Mathf.Min(1, ports.Count);
+            Diag.Debug("Pirate broadside, " + (side > 0 ? "starboard" : "port") + ", " + guns + "/" + ports.Count + " guns.");
 
-            for (int i = 0; i < ports.Count; i++)
+            for (int i = 0; i < guns; i++)
             {
                 if (!Alive) yield break;
 
@@ -395,6 +513,41 @@ namespace Expanded.Pirates
 
                 yield return new WaitForSeconds(Cfg.VolleyStagger.Value);
             }
+        }
+
+        // ------------------------------------------------------------------ surrender
+
+        /// <summary>Colours struck: she loses way and drifts, then is towed off as a prize.</summary>
+        private void Drift(float dt)
+        {
+            _surrenderTime += dt;
+            _speed = Mathf.MoveTowards(_speed, 0f, dt * Cfg.Acceleration.Value);
+            Vector3 next = transform.position + transform.forward * (_speed * dt);
+            next.y = SurfaceY();
+            transform.position = next;
+            ApplyRoll(dt);
+
+            if (_surrenderTime >= Cfg.SurrenderSeconds.Value)
+                PirateModule.Instance?.DespawnShip("taken as a prize");
+        }
+
+        private bool SideGunnerAlive(int side)
+        {
+            for (int i = 0; i < PirateCrew.Posts.Length; i++)
+            {
+                PirateCrew.Post p = PirateCrew.Posts[i];
+                if (p.Role == PirateCrew.Role.Gunner && p.Side == side) return CrewAlive(i);
+            }
+            return true; // no gunner posted on that side: the guns work as normal
+        }
+
+        /// <summary>A shooter reports hitting a crew member. Per-hit cap as a sanity limit.</summary>
+        internal void ServerTakeCrewGunfire(int index, int reported, string shooter)
+        {
+            if (!Alive || !CrewAlive(index)) return;
+            float damage = Mathf.Clamp(reported, 0, 250);
+            if (damage < 0.5f) return;
+            ServerDamageCrew(index, damage, shooter);
         }
 
         // ------------------------------------------------------------------ sinking
@@ -429,7 +582,7 @@ namespace Expanded.Pirates
 
             _statusDirty = false;
             _lastStatusSent = Time.time;
-            PirateModule.BroadcastStatus(true, Health, MaxHealth, _stance);
+            PirateModule.BroadcastStatus(true, Health, MaxHealth, _stance, DeadMask);
         }
     }
 }

@@ -19,6 +19,8 @@ namespace Expanded.Content
         public const string FlagFlock = "story.flock";
         public const string FlagChart = "story.chart";
         public const string FlagSwarmDefeated = "swarm.defeated";
+        public const string FlagCannonBought = "cannon.bought";
+        public const string FlagSiteReached = "chart.site.reached";
         public const string FlagPiratesBeaten = "pirates.defeated";
 
         // Quest ids other modules key off.
@@ -108,7 +110,10 @@ namespace Expanded.Content
             return q;
         }
 
-        /// <summary>Act 1 finale: the pirate fight, triggered by putting to sea while it is active.</summary>
+        /// <summary>
+        /// Act 1 finale. Three beats: arm yourself (teaches the shop), sail to the spot the chart
+        /// marks (a real, visible place to go), fight whoever is waiting there.
+        /// </summary>
         private static QuestDef ColoursAtDawn()
         {
             var q = new QuestDef
@@ -118,19 +123,25 @@ namespace Expanded.Content
                 Giver = StoryNpcs.Anne,
                 Summary = "The chart marks a wreck. Someone else's chart does too, and they have cannons.",
                 OfferText = "Give me that. ...Oh. Oh no.\n" +
-                            "This marks the Widow's last haul. Her captain's been hunting this chart for a month.\n" +
-                            "He'll find you whether you like it or not. Better at sea, on your terms, than at the dock on his.\n" +
-                            "Take a swivel gun from the harbour - it's on your bow when you need it.",
-                ActiveText = "Put to sea. Far out. He'll come. Stand at the bow gun and make him regret it.",
+                            "This is the Salted Widow's last haul. Her captain's been hunting this chart for a month, " +
+                            "and the mark on it is two hundred metres off this very island.\n" +
+                            "He's out there now. You can't outrun him in that tub - but you could outgun him.\n" +
+                            "The shop sells swivel guns, right next to the motors. Buy one, then go and see what's at the mark.",
+                ActiveText = "Gun first, then the mark. Look for a flag bobbing on the water. And don't let him get side-on to you.",
                 DoneText = "You sank the Salted Widow. People are going to start telling stories about you. Wrong ones, mostly."
             };
             q.Requires.Add(FlagChart);
-            q.Steps.Add(new QuestStep("Put to sea and sink the pirate ship",
+            q.Steps.Add(new QuestStep("Buy a swivel gun at the shop (next to the boat motors)",
+                                      Objective.Flag(FlagCannonBought),
+                                      "Bolted to the bow. It'll kick. Good."));
+            q.Steps.Add(new QuestStep("Sail to the flag the chart marks",
+                                      Objective.Flag(FlagSiteReached),
+                                      "Nothing at the mark but a buoy... and sails on the horizon."));
+            q.Steps.Add(new QuestStep("Sink the Salted Widow - or shoot her captain",
                                       Objective.Flag(FlagPiratesBeaten),
-                                      "Their mast is yours. So is every cannon still above water."));
+                                      "Their colours come down. The Widow is yours."));
             q.Rewards.Add(Reward.Money(1000));
             q.Rewards.Add(Reward.Unlock(UnlockPirateShip));
-            q.Rewards.Add(Reward.Unlock(UnlockCannon));
             return q;
         }
     }

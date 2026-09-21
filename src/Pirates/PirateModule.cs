@@ -67,6 +67,8 @@ namespace Expanded.Pirates
             Instance = this;
             RegisterNetHandlers();
             Cannonballs.RegisterClientHandlers();
+            ShopCannon.RegisterServerHandler();
+            ChartSite.RegisterClientHandlers();
         }
 
         // ------------------------------------------------------------------ session
@@ -77,6 +79,24 @@ namespace Expanded.Pirates
             EnsurePrefabRegistered();
             _atSeaSince = -1f;
             _nextRaidRoll = Time.time + 60f;
+            ChartSite.ServerReset();
+
+            if (asServer) MigrateOwnedCannon();
+        }
+
+        /// <summary>
+        /// Saves from before the cannon was sold in the shop may own it without the "bought" flag;
+        /// raise it so the story never asks them to buy something they already have.
+        /// </summary>
+        private static void MigrateOwnedCannon()
+        {
+            QuestEngine engine = QuestModule.Instance?.Engine;
+            if (engine == null) return;
+            if (SharedState.Has(PirateStory.UnlockCannon) && !engine.HasFlag(PirateStory.FlagCannonBought))
+            {
+                Diag.Info("Pirates: cannon already owned; marking it as bought.");
+                QuestModule.Instance.SetFlag(PirateStory.FlagCannonBought);
+            }
         }
 
         internal override void OnSessionEnd()
@@ -85,7 +105,10 @@ namespace Expanded.Pirates
             Cannonballs.ServerClear();
             Cannonballs.ClientClear();
             DeckCannon.Clear();
-            BoatRefit.Clear();
+            PirateHull.Clear();
+            ShopCannon.Clear();
+            ChartSite.ClientClear();
+            ChartSite.ServerReset();
             _barVisible = false;
             _registeredWith = null;
         }
@@ -97,13 +120,19 @@ namespace Expanded.Pirates
             if (IsServer)
             {
                 Cannonballs.ServerTick(dt);
-                TickTriggers();
+                ChartSite.ServerTick();
+                TickRaids();
             }
 
             Cannonballs.ClientTick(dt);
             DeckCannon.ClientTick(ShipFightActive);
-            BoatRefit.ClientTick();
+            PirateHull.ClientTick();
+            ShopCannon.ClientTick();
+            ChartSite.ClientTick();
         }
+
+        /// <summary>True on the host while an enemy ship exists.</summary>
+        internal bool ShipOut => _spawned != null;
 
         /// <summary>True on every machine while an enemy ship is afloat (from the replicated status).</summary>
         internal bool ShipFightActive => _barVisible && _barHp > 0f;
@@ -265,7 +294,11 @@ namespace Expanded.Pirates
 
         // ------------------------------------------------------------------ spawning
 
-        internal bool SpawnShip(bool story)
+        /// <summary>
+        /// Sends in the pirate ship. With <paramref name="near"/> she appears out beyond that point
+        /// (the chart's mark), otherwise on the horizon around the party.
+        /// </summary>
+        internal bool SpawnShip(bool story, Vector3? near = null)
         {
             if (!InstanceFinder.IsServerStarted)
             {
@@ -287,7 +320,9 @@ namespace Expanded.Pirates
             try
             {
                 Vector3 party = PartyPosition();
-                Vector3 pos = FindOpenWater(party, Cfg.SpawnDistance.Value);
+                Vector3 pos = near.HasValue
+                    ? FindOpenWater(near.Value, 45f)          // lurking just past the mark
+                    : FindOpenWater(party, Cfg.SpawnDistance.Value);
 
                 Vector3 look = party - pos;
                 look.y = 0f;
@@ -306,7 +341,7 @@ namespace Expanded.Pirates
 
                 Diag.Info("Pirates: ship spawned (" + (story ? "story" : "raid") + ") at " + pos.ToString("F1") + ".");
                 Announce(story
-                    ? "Sails on the horizon. The chart's other owners have come to collect."
+                    ? "Sails behind the buoy - the Salted Widow was waiting for you. Man the bow gun, and shoot her captain if you can."
                     : "A ship flying no colours is closing fast. Word of your money travels.");
                 return true;
             }
@@ -321,7 +356,7 @@ namespace Expanded.Pirates
         /// Picks a spawn point on open water. Spawning her inside an island would leave her stuck
         /// and unreachable, so candidates in a ring are tested for land before one is used.
         /// </summary>
-        private static Vector3 FindOpenWater(Vector3 around, float radius)
+        internal static Vector3 FindOpenWater(Vector3 around, float radius)
         {
             float water = WaterY();
             int mask = GameInfo.LevelLayer.value;
@@ -371,15 +406,18 @@ namespace Expanded.Pirates
 
             _spawned = null;
             _lastRaidEnded = Time.time;
-            if (InstanceFinder.IsServerStarted) BroadcastStatus(false, 0f, 1f, PirateShip.Stance.Leaving);
+            if (InstanceFinder.IsServerStarted) BroadcastStatus(false, 0f, 1f, PirateShip.Stance.Leaving, 0);
         }
 
         // ------------------------------------------------------------------ outcomes
 
-        internal void OnShipSunk(PirateShip ship)
+        /// <summary>Host: the ship is beaten - sunk, or her captain shot and her colours struck.</summary>
+        internal void OnShipDefeated(PirateShip ship, bool surrendered)
         {
-            Announce("She's going down! " + Cfg.ShipName.Value + " is taking on water.");
-            ModSave.AddCounter("pirates.sunk", 1);
+            Announce(surrendered
+                ? "Their captain is down! The crew strike their colours - " + Cfg.ShipName.Value + " surrenders!"
+                : "She's going down! " + Cfg.ShipName.Value + " is taking on water.");
+            ModSave.AddCounter(surrendered ? "pirates.captured" : "pirates.sunk", 1);
 
             if (_spawnedForStory)
             {
@@ -402,9 +440,13 @@ namespace Expanded.Pirates
             Announce("The pirates break off - " + why + ".");
         }
 
-        // ------------------------------------------------------------------ triggers (host)
+        // ------------------------------------------------------------------ raids (host)
 
-        private void TickTriggers()
+        /// <summary>
+        /// Random raids on rich crews, only after the story fight. The story fight itself is
+        /// triggered by reaching the chart's mark (see ChartSite).
+        /// </summary>
+        private void TickRaids()
         {
             if (_spawned != null) { _atSeaSince = -1f; return; }
 
@@ -412,16 +454,7 @@ namespace Expanded.Pirates
             if (!atSea) { _atSeaSince = -1f; return; }
             if (_atSeaSince < 0f) _atSeaSince = Time.time;
 
-            float seaTime = Time.time - _atSeaSince;
-
-            // Story: the pirate quest is active and the crew has put to sea.
-            if (StoryFightPending() && seaTime >= Cfg.StoryTriggerDelay.Value)
-            {
-                SpawnShip(true);
-                return;
-            }
-
-            // Raids: only after the story fight, only for rich crews, and rarely.
+            if (StoryFightPending()) return;   // the story owns the sea until Act 1 is done
             if (!RaidEligible()) return;
             if (Time.time < _nextRaidRoll) return;
             _nextRaidRoll = Time.time + 60f;
@@ -474,6 +507,7 @@ namespace Expanded.Pirates
                 float hp = r.ReadSingle();
                 float max = r.ReadSingle();
                 var stance = (PirateShip.Stance)r.ReadByte();
+                byte deadMask = r.ReadByte();
                 string name = r.ReadString();
 
                 bool wasVisible = _barVisible;
@@ -483,6 +517,24 @@ namespace Expanded.Pirates
                 _barStance = stance;
                 _barName = name;
                 if (alive && !wasVisible) _barShown = hp; // no animated fill-up on first sight
+
+                // Late joiners (and anyone who missed a death message) catch up on the bodies.
+                if (deadMask != 0) PirateShip.Current?.ClientApplyDeadMask(deadMask);
+            });
+
+            ModNet.OnClient(Msg.CrewDied, r =>
+            {
+                int index = r.ReadByte();
+                PirateShip.Current?.ClientKillCrew(index);
+            });
+
+            ModNet.OnServer(Msg.CrewHit, (conn, r) =>
+            {
+                int index = r.ReadByte();
+                int damage = r.ReadInt32();
+                PirateShip ship = PirateShip.Active;
+                if (ship == null || !ship.Alive) return;
+                ship.ServerTakeCrewGunfire(index, damage, Describe(conn));
             });
 
             ModNet.OnServer(Msg.ShipHit, (conn, r) =>
@@ -512,23 +564,28 @@ namespace Expanded.Pirates
             // A late joiner sees the fight at once rather than after the next status heartbeat.
             ModNet.OnServer(Msg.Hello, (conn, r) =>
             {
+                if (ChartSite.HostActive) ChartSite.SendTo(conn);
+
                 PirateShip ship = PirateShip.Active;
                 if (ship == null) return;
-                ModNet.SendTo(conn, Msg.ShipStatus, w => WriteStatus(w, ship.Alive, ship.Health, ship.MaxHealth, ship.CurrentStance));
+                ModNet.SendTo(conn, Msg.ShipStatus,
+                    w => WriteStatus(w, true, ship.Health, ship.MaxHealth, ship.CurrentStance, ship.DeadMask));
             });
         }
 
-        internal static void BroadcastStatus(bool alive, float hp, float max, PirateShip.Stance stance)
+        internal static void BroadcastStatus(bool alive, float hp, float max, PirateShip.Stance stance, byte deadMask)
         {
-            ModNet.SendToAll(Msg.ShipStatus, w => WriteStatus(w, alive, hp, max, stance));
+            ModNet.SendToAll(Msg.ShipStatus, w => WriteStatus(w, alive, hp, max, stance, deadMask));
         }
 
-        private static void WriteStatus(System.IO.BinaryWriter w, bool alive, float hp, float max, PirateShip.Stance stance)
+        private static void WriteStatus(System.IO.BinaryWriter w, bool alive, float hp, float max,
+                                        PirateShip.Stance stance, byte deadMask)
         {
             w.Write(alive);
             w.Write(hp);
             w.Write(max);
             w.Write((byte)stance);
+            w.Write(deadMask);
             w.Write(Cfg.ShipName.Value ?? "");
         }
 
@@ -541,6 +598,7 @@ namespace Expanded.Pirates
         internal override void OnGUI()
         {
             DeckCannon.OnGUI();
+            ChartSite.OnGUI();
 
             if (!_barVisible) return;
 
@@ -563,6 +621,7 @@ namespace Expanded.Pirates
             }
 
             string title = _barName + (_barStance == PirateShip.Stance.Sinking ? "  - sinking" :
+                                       _barStance == PirateShip.Stance.Surrendered ? "  - colours struck" :
                                        _barStance == PirateShip.Stance.Leaving ? "  - fleeing" : "");
             GUI.Label(new Rect(x, y, w, 22f), title, _barLabel);
 
@@ -652,11 +711,21 @@ namespace Expanded.Pirates
             }
 
             bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+            bool ctrl = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
+
+            if (ctrl && PirateShip.Active != null)
+            {
+                // Test helper: shoot the captain, to test the surrender path.
+                PirateShip.Active.ServerTakeCrewGunfire(0, 9999, "debug");
+                return;
+            }
             if (shift && PirateShip.Active != null)
             {
-                // Test helper: knock a quarter off her hull.
-                PirateShip.Active.ServerTakeExplosion(PirateShip.Active.transform.position, 99f,
-                                                      Mathf.CeilToInt(Cfg.Health.Value * 0.25f));
+                // Test helper: knock a quarter off her hull. Aimed at the waterline so it does not
+                // also wipe out the crew standing on deck.
+                PirateShip s = PirateShip.Active;
+                s.ServerTakeExplosion(s.transform.position + Vector3.down * 3f, 99f,
+                                      Mathf.CeilToInt(Cfg.Health.Value * 0.25f));
                 return;
             }
 

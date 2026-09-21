@@ -67,6 +67,8 @@ namespace Expanded.Tests
             {
                 // Raised by modules rather than quests.
                 PirateStory.FlagSwarmDefeated,
+                PirateStory.FlagCannonBought,
+                PirateStory.FlagSiteReached,
                 PirateStory.FlagPiratesBeaten
             };
             foreach (QuestDef q in e.Definitions)
@@ -123,12 +125,18 @@ namespace Expanded.Tests
             Check(e.Progress(PirateStory.QuestPirates).Status == QuestStatus.Available, "finale offered");
 
             Check(e.Accept(PirateStory.QuestPirates), "accept Colours at Dawn");
+            Check(e.Progress(PirateStory.QuestPirates).StepIndex == 0, "first beat: buy a gun");
+            e.SetFlag(PirateStory.FlagCannonBought);
+            Check(e.Progress(PirateStory.QuestPirates).StepIndex == 1, "buying the gun moves on to the chart mark");
+            e.SetFlag(PirateStory.FlagSiteReached);
+            Check(e.Progress(PirateStory.QuestPirates).StepIndex == 2, "reaching the mark starts the fight");
+
             List<QuestOutcome> outcomes = e.SetFlag(PirateStory.FlagPiratesBeaten);
-            Check(e.Progress(PirateStory.QuestPirates).Status == QuestStatus.Completed, "sinking the ship completes act 1");
+            Check(e.Progress(PirateStory.QuestPirates).Status == QuestStatus.Completed, "beating the pirates completes act 1");
             Check(outcomes.Any(o => o.Kind == QuestOutcome.Type.RewardGranted && o.Reward.Key == PirateStory.UnlockPirateShip),
-                  "the pirate refit is granted");
-            Check(outcomes.Any(o => o.Kind == QuestOutcome.Type.RewardGranted && o.Reward.Key == PirateStory.UnlockCannon),
-                  "the cannon is granted");
+                  "the pirate ship is granted");
+            Check(!outcomes.Any(o => o.Kind == QuestOutcome.Type.RewardGranted && o.Reward.Key == PirateStory.UnlockCannon),
+                  "the cannon is bought, not handed out");
             Check(StoryNpcs.IsPresent(StoryNpcs.ById("mako"), e), "Mako the shipwright appears afterwards");
         }
 
@@ -147,7 +155,14 @@ namespace Expanded.Tests
             e.Accept(PirateStory.QuestOmens);
             for (int i = 0; i < 3; i++) e.Handle(QuestEvent.Killed("seagull"));
             e.Accept(PirateStory.QuestFlock);
-            Check(e.HasFlag(PirateStory.FlagSwarmDefeated), "earlier victory still recorded");
+            Check(e.Progress(PirateStory.QuestFlock).Status == QuestStatus.Completed,
+                  "quest whose goal was already met completes on accept instead of hanging");
+            Check(e.HasFlag(PirateStory.FlagChart), "and its rewards still arrive");
+
+            // Buying the gun before Anne asks is the likely case; it must not strand the finale.
+            e.SetFlag(PirateStory.FlagCannonBought);
+            e.Accept(PirateStory.QuestPirates);
+            Check(e.Progress(PirateStory.QuestPirates).StepIndex == 1, "pre-bought gun skips straight to the chart mark");
         }
 
         // ------------------------------------------------------------------ ballistics

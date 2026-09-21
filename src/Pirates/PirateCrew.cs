@@ -5,33 +5,37 @@ using UnityEngine;
 namespace Expanded.Pirates
 {
     /// <summary>
-    /// Puts a crew on the pirate ship: the captain at the stern, hands at the guns.
+    /// Puts a crew on the pirate ship: the captain at the stern, a gunner on each broadside, a
+    /// lookout and a deckhand. They can be shot.
     ///
     /// The crew are children of the ship's networked prefab, so they ride along on every client with
-    /// no networking of their own. Their animation is local: each client reads the ship's replicated
-    /// state (from the health bar feed) and picks idle, fighting or abandon-ship animations itself.
+    /// no networking of their own. Who is alive is decided by the host and broadcast; animation is
+    /// local on each client.
     ///
-    /// Deck height is measured, not guessed: a temporary copy of the hull is placed far below the
-    /// world with its colliders live, and the deck is found by raycasting down onto it.
+    /// Why shooting them matters: a dead gunner silences most of his broadside, and a dead captain
+    /// makes the ship strike her colours - a way to win that rewards marksmanship over firepower.
     /// </summary>
     internal static class PirateCrew
     {
-        private struct Post
+        internal enum Role { Captain, Gunner, Lookout, Deckhand }
+
+        internal struct Post
         {
             public string Model;
-            public Vector2 LocalXZ;     // as fractions of the hull's half-extents
+            public Vector2 LocalXZ;     // fractions of the hull's half-extents
             public float FaceYaw;
-            public string Role;
+            public Role Role;
+            public int Side;            // gunners: +1 starboard, -1 larboard
         }
 
-        // Positions are fractions of the hull size so they scale with whichever ship model is used.
-        private static readonly Post[] Posts =
+        // Order is the crew index on the wire; it must be identical on every machine.
+        internal static readonly Post[] Posts =
         {
-            new Post { Model = "characters_captain_barbarossa", LocalXZ = new Vector2(0f, -0.62f), FaceYaw = 0f, Role = "captain" },
-            new Post { Model = "characters_sharky",   LocalXZ = new Vector2(0.28f, -0.1f),  FaceYaw = 90f,  Role = "gunner" },
-            new Post { Model = "characters_henry",    LocalXZ = new Vector2(-0.28f, 0.15f), FaceYaw = -90f, Role = "gunner" },
-            new Post { Model = "characters_mako",     LocalXZ = new Vector2(0.05f, 0.45f),  FaceYaw = 0f,   Role = "lookout" },
-            new Post { Model = "characters_skeleton", LocalXZ = new Vector2(-0.12f, -0.35f), FaceYaw = 160f, Role = "deckhand" },
+            new Post { Model = "characters_captain_barbarossa", LocalXZ = new Vector2(0f, -0.62f),  FaceYaw = 0f,   Role = Role.Captain },
+            new Post { Model = "characters_sharky",   LocalXZ = new Vector2(0.28f, -0.1f),  FaceYaw = 90f,  Role = Role.Gunner, Side = 1 },
+            new Post { Model = "characters_henry",    LocalXZ = new Vector2(-0.28f, 0.15f), FaceYaw = -90f, Role = Role.Gunner, Side = -1 },
+            new Post { Model = "characters_mako",     LocalXZ = new Vector2(0.05f, 0.45f),  FaceYaw = 0f,   Role = Role.Lookout },
+            new Post { Model = "characters_skeleton", LocalXZ = new Vector2(-0.12f, -0.35f), FaceYaw = 160f, Role = Role.Deckhand },
         };
 
         internal static int Populate(Transform shipRoot, Bounds hull)
@@ -44,6 +48,7 @@ namespace Expanded.Pirates
             }
 
             List<float> decks = MeasureDeck(hull);
+            int npcLayer = LayerFromMask(GameInfo.NpcLayer.value);
             int placed = 0;
 
             for (int i = 0; i < Posts.Length; i++)
@@ -59,14 +64,40 @@ namespace Expanded.Pirates
 
                 c.transform.localPosition = local;
                 c.transform.localRotation = Quaternion.Euler(0f, p.FaceYaw, 0f);
+                AddHitbox(c, npcLayer);
 
                 CrewMember member = c.AddComponent<CrewMember>();
+                member.Index = i;
                 member.Role = p.Role;
                 placed++;
             }
 
             Diag.Info("PirateCrew: " + placed + " crew aboard" + (ModCharacters.HasColour ? "." : " (grey until the colour atlas is installed)."));
             return placed;
+        }
+
+        /// <summary>
+        /// A person-sized capsule on the game's NPC layer, tagged NPC. Bullets already stop on that
+        /// layer, and the game plays blood effects for anything tagged NPC - so hits look right with
+        /// no extra effect code.
+        /// </summary>
+        private static void AddHitbox(GameObject crew, int layer)
+        {
+            var hitbox = new GameObject("Hitbox");
+            hitbox.transform.SetParent(crew.transform, false);
+            hitbox.layer = layer;
+            try { hitbox.tag = "NPC"; } catch (Exception e) { Diag.Debug("NPC tag unavailable: " + e.Message); }
+
+            CapsuleCollider cap = hitbox.AddComponent<CapsuleCollider>();
+            cap.height = 1.8f;
+            cap.radius = 0.38f;
+            cap.center = new Vector3(0f, 0.9f, 0f);
+        }
+
+        private static int LayerFromMask(int mask)
+        {
+            for (int i = 0; i < 32; i++) if ((mask & (1 << i)) != 0) return i;
+            return 0;
         }
 
         /// <summary>
@@ -102,8 +133,7 @@ namespace Expanded.Pirates
                     foreach (RaycastHit h in Physics.RaycastAll(origin, Vector3.down, hull.size.y + 4f, ~0, QueryTriggerInteraction.Ignore))
                     {
                         if (h.collider == null || !h.collider.transform.IsChildOf(root)) continue;
-                        // Skip the rigging: a sailor standing on a yardarm looks silly. Keep the
-                        // highest surface in the lower half of the ship.
+                        // Skip the rigging: keep the highest surface in the lower half of the ship.
                         float y = root.InverseTransformPoint(h.point).y;
                         if (y > hull.min.y + hull.size.y * 0.5f) continue;
                         if (h.distance < best) { best = h.distance; deck = y; }
@@ -125,30 +155,47 @@ namespace Expanded.Pirates
     }
 
     /// <summary>
-    /// Per-client animation for one crew member, driven by the ship's replicated state rather than
-    /// by any network traffic of its own.
+    /// One crew member on every client. Animation is local and follows the ship's replicated state;
+    /// death is decided by the host and arrives as a message (or in the status for late joiners).
     /// </summary>
     internal sealed class CrewMember : MonoBehaviour
     {
-        internal string Role = "deckhand";
+        internal int Index;
+        internal PirateCrew.Role Role = PirateCrew.Role.Deckhand;
+        internal bool Dead { get; private set; }
 
         private string _current;
         private float _nextFlourish;
-        private bool _dead;
 
+        // FishNet pools despawned ships and reuses them, so every life starts fresh here.
         private void OnEnable()
         {
+            Dead = false;
             _current = null;
-            _dead = false;
             _nextFlourish = Time.time + UnityEngine.Random.Range(2f, 6f);
+            SetHitbox(true);
             SetClip("Idle", true);
+        }
+
+        internal void Die()
+        {
+            if (Dead) return;
+            Dead = true;
+            CancelInvoke();
+            SetHitbox(false);
+            SetClip("Death", false);
+        }
+
+        private void SetHitbox(bool on)
+        {
+            foreach (Collider c in GetComponentsInChildren<Collider>(true)) c.enabled = on;
         }
 
         private void Update()
         {
             try
             {
-                if (_dead) return;
+                if (Dead) return;
 
                 PirateModule pm = PirateModule.Instance;
                 PirateShip.Stance stance = pm != null ? pm.ReplicatedStance : PirateShip.Stance.Closing;
@@ -156,8 +203,14 @@ namespace Expanded.Pirates
                 if (stance == PirateShip.Stance.Sinking)
                 {
                     // Abandon ship: some go down fighting, some just go down.
-                    _dead = true;
+                    Dead = true;
+                    SetHitbox(false);
                     SetClip(UnityEngine.Random.value < 0.5f ? "Death" : "Jump", false);
+                    return;
+                }
+                if (stance == PirateShip.Stance.Surrendered)
+                {
+                    if (_current != "No") SetClip("No", true);   // hands up, heads shaking
                     return;
                 }
 
@@ -165,9 +218,10 @@ namespace Expanded.Pirates
                 if (Time.time >= _nextFlourish)
                 {
                     _nextFlourish = Time.time + UnityEngine.Random.Range(3f, 7f);
-                    string flourish = Role == "captain" ? (fighting ? "Sword" : "Wave")
-                                    : Role == "gunner" ? (fighting ? "Punch" : "Idle")
-                                    : Role == "lookout" ? "Wave" : "Yes";
+                    string flourish =
+                        Role == PirateCrew.Role.Captain ? (fighting ? "Sword" : "Wave") :
+                        Role == PirateCrew.Role.Gunner ? (fighting ? "Punch" : "Idle") :
+                        Role == PirateCrew.Role.Lookout ? "Wave" : "Yes";
                     SetClip(flourish, false);
                     Invoke(nameof(BackToIdle), 1.6f);
                 }
@@ -180,7 +234,7 @@ namespace Expanded.Pirates
 
         private void BackToIdle()
         {
-            if (!_dead) SetClip("Idle", true);
+            if (!Dead) SetClip("Idle", true);
         }
 
         private void SetClip(string clip, bool loop)

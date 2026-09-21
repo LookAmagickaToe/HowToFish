@@ -211,6 +211,16 @@ namespace Expanded.Npcs
 
             List<string> barks = StoryNpcs.CurrentBarks(npc, engine);
             page.Text = barks.Count > 0 ? barks[UnityEngine.Random.Range(0, barks.Count)] : "...";
+
+            // The shipwright switches the boat between its old hull and the captured pirate ship.
+            if (npc.Id == "mako" && SharedState.Has(PirateStory.UnlockPirateShip))
+            {
+                bool fitted = !SharedState.Has(PirateHull.UnlockDisabled);
+                page.Options.Add(fitted
+                    ? new KeyValuePair<string, string>("hull:off", "Put my old boat back together.")
+                    : new KeyValuePair<string, string>("hull:on", "Rig the Widow's hull again."));
+            }
+
             page.Options.Add(new KeyValuePair<string, string>("close", "Bye."));
             return page;
         }
@@ -218,6 +228,19 @@ namespace Expanded.Npcs
         private void HostHandleChoice(NetworkConnection conn, string npcId, string optionId)
         {
             if (string.IsNullOrEmpty(optionId) || optionId == "close") return;
+
+            if (optionId == "hull:on" || optionId == "hull:off")
+            {
+                if (npcId != "mako" || !SharedState.Has(PirateStory.UnlockPirateShip)) return;
+                if (!SpeakerInRange(conn, npcId)) return;
+
+                bool on = optionId == "hull:on";
+                if (on) SharedState.Revoke(PirateHull.UnlockDisabled);
+                else SharedState.Grant(PirateHull.UnlockDisabled);
+                PirateModule.Announce(on ? "Mako rigs the Widow's hull onto your boat. She's yours to sail."
+                                         : "Mako strips the pirate hull off. Your old boat is back.");
+                return;
+            }
 
             const string acceptPrefix = "accept:";
             if (!optionId.StartsWith(acceptPrefix, StringComparison.Ordinal)) return;

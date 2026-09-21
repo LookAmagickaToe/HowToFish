@@ -28,6 +28,18 @@ namespace Expanded.Pirates
         internal static void Invalidate() => _layout = null;
 
         /// <summary>
+        /// The frame everything mounted on the boat must hang off: the visual boat, which the game
+        /// keeps in step with the physics body (the driver's position is computed relative to it).
+        /// The boat's root object is NOT a safe parent - with separate physics and visual rigs, a root
+        /// may well stay where the boat was spawned while the boat sails away.
+        /// </summary>
+        internal static Transform Frame(Boat boat)
+        {
+            if (boat == null) return null;
+            return boat.VisualBoat != null ? boat.VisualBoat : boat.transform;
+        }
+
+        /// <summary>
         /// Mount point in the boat's local space plus the local direction that faces outward from
         /// it. Returns false if there is no boat.
         /// </summary>
@@ -72,7 +84,7 @@ namespace Expanded.Pirates
             Vector3 lp, lf;
             if (!TryGet(slot, out lp, out lf)) return false;
 
-            Transform t = BoatManager.Boat.transform;
+            Transform t = Frame(BoatManager.Boat);
             worldPos = t.TransformPoint(lp);
             worldForward = t.TransformDirection(lf);
             return true;
@@ -83,13 +95,21 @@ namespace Expanded.Pirates
             // Cached per boat object; a new island means a new boat instance and a fresh measurement.
             if (_layout != null && _layout.Boat == boat) return _layout;
 
-            Transform root = boat.transform;
+            Transform root = Frame(boat);
             bool any = false;
             Bounds local = default(Bounds);
 
-            foreach (Renderer r in boat.GetComponentsInChildren<Renderer>(true))
+            // With the pirate hull fitted, the old boat's meshes are hidden and the pirate hull is
+            // what guns should sit on, so measure that instead.
+            GameObject pirate = PirateHull.VisualRoot;
+            IEnumerable<Renderer> source = pirate != null
+                ? pirate.GetComponentsInChildren<Renderer>(true)
+                : boat.GetComponentsInChildren<Renderer>(true);
+
+            foreach (Renderer r in source)
             {
-                if (r == null || IsOurs(r.transform)) continue;
+                if (r == null) continue;
+                if (pirate == null && IsOurs(r.transform)) continue;
                 if (r is ParticleSystemRenderer) continue;
 
                 Bounds wb = r.bounds;
@@ -131,7 +151,7 @@ namespace Expanded.Pirates
         /// </summary>
         private static float DeckHeight(Boat boat, Vector3 localTop, Bounds b)
         {
-            Transform root = boat.transform;
+            Transform root = Frame(boat);
             Vector3 origin = root.TransformPoint(localTop + Vector3.up * 3f);
             Vector3 down = -root.up;
             float dist = b.size.y + 6f;
@@ -142,11 +162,23 @@ namespace Expanded.Pirates
 
             foreach (RaycastHit h in hits)
             {
-                if (h.collider == null || !h.collider.transform.IsChildOf(root)) continue;
+                if (h.collider == null || !h.collider.enabled) continue;
+                // The walkable deck lives in a collider holder that follows the physics body, not
+                // necessarily under the visual frame; identify it through the game's own
+                // collider-to-boat registry (the fitted pirate deck registers there too).
+                Boat owner;
+                bool onBoat = h.collider.transform.IsChildOf(boat.transform) ||
+                              (BoatManager.ColToBoat.TryGetValue(h.collider, out owner) && owner == boat);
+                if (!onBoat) continue;
+                // Our own decoration never counts as deck; the fitted pirate deck does (its colliders
+                // are not under an ExpandedMount root, so IsOurs lets them through).
                 if (IsOurs(h.collider.transform)) continue;
+                // Masts and sails are not somewhere to bolt a cannon: ignore the upper half.
+                float ly = root.InverseTransformPoint(h.point).y;
+                if (ly > b.min.y + b.size.y * 0.55f) continue;
                 if (h.distance >= best) continue;
                 best = h.distance;
-                y = root.InverseTransformPoint(h.point).y;
+                y = ly;
             }
             return y;
         }

@@ -82,9 +82,21 @@ namespace Expanded.Pirates
                 if (projectile == null || !projectile.IsLocal) return;
                 if (projectile.FromNpc) return;
                 if (hit.collider == null) return;
-                if (hit.collider.GetComponentInParent<PirateShip>() == null) return;
 
                 int damage = projectile.Damage;
+
+                // Crew first: they stand on the ship, so a crew hit is also "inside" the ship.
+                CrewMember crew = hit.collider.GetComponentInParent<CrewMember>();
+                if (crew != null)
+                {
+                    if (crew.Dead) return;
+                    byte index = (byte)crew.Index;
+                    ModNet.SendToServer(Msg.CrewHit, w => { w.Write(index); w.Write(damage); });
+                    return;
+                }
+
+                if (hit.collider.GetComponentInParent<PirateShip>() == null) return;
+
                 Vector3 point = hit.point;
                 ModNet.SendToServer(Msg.ShipHit, w =>
                 {
