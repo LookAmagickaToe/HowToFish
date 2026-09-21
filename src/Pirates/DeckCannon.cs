@@ -42,6 +42,13 @@ namespace Expanded.Pirates
         private static float _mannedAt;
         private static float _lastShotAt;
 
+        /// <summary>
+        /// The gunner's height in the boat's frame, taken from where they stood when they took the
+        /// gun. The player's position is not at their feet, so the deck height would sink them into
+        /// the hull; standing height keeps them exactly as tall as when walking about.
+        /// </summary>
+        private static float _seatLocalY;
+
         private static PirateConfig Cfg => PirateModule.Cfg;
 
         /// <summary>True while the local player mans a gun.</summary>
@@ -178,6 +185,10 @@ namespace Expanded.Pirates
 
             _manned = index;
             _mannedAt = Time.time;
+            Transform frame = Guns[index].Model.transform.parent;
+            float standing = frame.InverseTransformPoint(me.Transform.position).y;
+            float deck = Guns[index].Model.transform.localPosition.y;
+            _seatLocalY = Mathf.Max(standing, deck);   // never below the deck the gun stands on
             GunPatches.SetFrozen(me, true);
             FaceGun(me, Guns[index]);
             Diag.Info("DeckCannon: manning gun " + index + " (" + Guns[index].Slot + ").");
@@ -259,8 +270,11 @@ namespace Expanded.Pirates
             pos = Vector3.zero;
             if (!Manning || _manned >= Guns.Count || Guns[_manned].Model == null) return false;
             Transform m = Guns[_manned].Model.transform;
-            Vector3 rest = m.parent.rotation * Guns[_manned].RestLocalRotation * Vector3.forward;
-            pos = m.position - rest * 1.0f;
+            Transform frame = m.parent;
+            Vector3 restLocal = Guns[_manned].RestLocalRotation * Vector3.forward;
+            Vector3 local = m.localPosition - restLocal * 1.0f;
+            local.y = _seatLocalY;
+            pos = frame.TransformPoint(local);
             return true;
         }
 
