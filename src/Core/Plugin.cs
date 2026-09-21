@@ -202,12 +202,17 @@ namespace Expanded
             {
                 ModNet.HookClient();
 
-                // A joining client asks the host for everything it missed: unlocks, journal, NPCs,
-                // any fight in progress. Once per session, as soon as the client is actually up.
-                if (!server && !_helloSent)
+                // Every client - the host's own included - asks the host for everything it missed:
+                // unlocks, journal, NPCs, any fight in progress. The host needs this too: its server
+                // broadcasts the opening state before its own client is authenticated, and FishNet
+                // silently drops broadcasts to unauthenticated connections (Old Salt never appeared).
+                // Once per session, as soon as the connection is authenticated.
+                FishNet.Connection.NetworkConnection conn = FishNet.InstanceFinder.ClientManager?.Connection;
+                if (!_helloSent && conn != null && conn.IsAuthenticated)
                 {
                     _helloSent = true;
                     ModNet.SendToServer(Msg.Hello);
+                    Diag.Info("ModNet: client authenticated, requested state from host.");
                 }
             }
 
