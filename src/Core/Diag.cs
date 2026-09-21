@@ -38,6 +38,12 @@ namespace Expanded
             FilePath = path;
             try
             {
+                // Keep the previous run: a quick relaunch must not wipe the session worth reading.
+                if (File.Exists(path))
+                {
+                    string prev = Path.Combine(Path.GetDirectoryName(path) ?? "", Path.GetFileNameWithoutExtension(path) + "-prev.log");
+                    try { File.Copy(path, prev, true); } catch { /* best effort */ }
+                }
                 _file = new StreamWriter(path, false) { AutoFlush = true };
             }
             catch (Exception e)
